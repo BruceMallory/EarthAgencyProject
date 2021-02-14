@@ -11,31 +11,76 @@ pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","r
 ```
 
 ```{r, include=FALSE}
-#Change work directory, can change to your own
+#Change working directory, can change to your own
 setwd("~/MSSP/Consulting/Earth agency")
-adult <- read.csv("EarthAgency_Adults_R.csv",header = TRUE)
-children <- read.csv("EarthAgency_Children_R.csv",header = TRUE)
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
 
 adult1 <- adult %>%
-            dplyr::select(Condition,Agency_Language,SRFactsTotal,SRTotal,invitalscore,
-                   inpsychscore,inagencyscore,Gender,
-                   MeanSever,BioJtscore,AntJtscore,BioJFtotal,Sciclass,FirstLang)%>%
-                   mutate(Condition = factor(Condition))
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    SRTotal,
+    invitalscore,
+    inpsychscore,
+    inagencyscore,
+    Gender,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    Sciclass,
+    FirstLang
+  ) %>%
+  mutate(Condition = factor(Condition))
+
 adult1 <- na.omit(adult1)
 adult1 <- adult1 %>%
-                 mutate(SRFactsTotal=as.integer(SRFactsTotal),inagencyscore=as.integer(inagencyscore),invitalscore=as.integer(invitalscore),inpsychscore=as.integer(inpsychscore),Gender=as.factor(Gender),Agency_Language=as.factor(Agency_Language),Sciclass=as.factor(Sciclass),FirstLang=as.factor(FirstLang))
-
-
+  mutate(
+    SRFactsTotal = as.integer(SRFactsTotal),
+    inagencyscore = as.integer(inagencyscore),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Gender = as.factor(Gender),
+    Agency_Language = as.factor(Agency_Language),
+    Sciclass = as.factor(Sciclass),
+    FirstLang = as.factor(FirstLang)
+  )
 
 children1 <- children %>%
-            dplyr::select(Condition,Agency_Language,SRFactsTotal,SRTotal,invitalscore,
-                   inpsychscore,inagencyscore,Location,Gender,Order,
-                   MeanSever,BioJtscore,AntJtscore,BioJFtotal) %>%
-                   mutate(Condition = factor(Condition))
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    SRTotal,
+    invitalscore,
+    inpsychscore,
+    inagencyscore,
+    Location,
+    Gender,
+    Order,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal
+  ) %>%
+  mutate(Condition = factor(Condition))
+
 children1$OrderS <- substring(children1$Order, 1, 2)
 children1 <- na.omit(children1)
+
 children1 <- children1 %>%
-                 mutate(SRFactsTotal=as.integer(SRFactsTotal),inagencyscore=as.integer(inagencyscore),invitalscore=as.integer(invitalscore),inpsychscore=as.integer(inpsychscore),Gender=as.factor(Gender),Location=as.factor(Location),Agency_Language=as.factor(Agency_Language),OrderS=as.factor(OrderS))
+  mutate(
+    SRFactsTotal = as.integer(SRFactsTotal),
+    inagencyscore = as.integer(inagencyscore),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Gender = as.factor(Gender),
+    Location = as.factor(Location),
+    Agency_Language = as.factor(Agency_Language),
+    OrderS = as.factor(OrderS)
+  )
 ```
 # 1 Summary
 There are four dependent variables of interest (MeanS, Bio, comAntJscore, comBioJFtotal).  Previous analysis convinced us to combine the levels of these variables in the following manner: 
@@ -44,47 +89,54 @@ For Children:
 
 Variable | Original levels | We combined | New levels
 ----------- | ----------- | ----------- | -----------
-MeanSeverity | 0, 1, 2, 3  | 1 & 2 | 0, 1, 3  
-Bio | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
-comAntJscore | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
-comBioJFtotal | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
+MeanSeverity | 0, 1, 2, 3  | 1 & 2 | 0, 1, 3, 4  
+Bio | ?  | ? | ?  
+comAntJscore | ?  | ? | ?  
+comBioJFtotal | ?  | ? | ?  
 
 For Adults: 
 
 Variable | Original levels | We combined | New levels
 ----------- | ----------- | ----------- | -----------
-MeanS | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
-Bio | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
-comAntJscore | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
-comBioJFtotal | 0, 1, 2, 3  | 0 & 1 | 0, 1, 2  
+MeanSeverity | 0, 1, 2, 3  | 0 & 1 | 0, 2, 3  
+Bio | ?  | ? | ?  
+comAntJscore | ?  | ? | ?  
+comBioJFtotal | ?  | ? | ?  
 
-For each of these eight dependent variables (4 for children, 4 for adults) we have included the following  six predictor variables in an ordinal regression model: Condition, Agency_Language, SRFactsTotal, SRTotal, Gender, inagencyscore.  
+For each of these eight dependent variables (4 for children, 4 for adults) we have included the following  six predictor variables in an ordinal regression model:  
+  Condition, Agency_Language, SRFactsTotal, SRTotal, Gender, inagencyscore.  
 For children we have added: Location & OrderS
 For adults we have added: FirstLang
 
-Previous analysis has convinced to use an ordinal regression model.
+Previous analysis has convinced us to use an ordinal regression model.
 
 The models and their summaries are organized below: 
 
 # 2.1.1 Children: Mean Severity Score
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-#Round and combine levels for Mean Severity (0=ok, 1=wrong, 2=very wrong, 3=extremely wrong),
+
+#Round and combine levels for Mean Severity (0=ok, 1=wrong, 2=very wrong, 3=extremely wrong):
+#NOTE: the round() function rounds 0.5 down to 0 and 1.5 up to 2
 # 0 => average score ≤ 0.5
 # 1 => average score > 0.5 & ≤ 2.5
 # 3 => average score > 2.5
 
-children1$MeanS<-children1$MeanSever
-children1$MeanS<-round(children1$MeanS,digits=0)
-children1$MeanS[which(children1$MeanS==2)]<-1
-#children1$MeanS <- factor(children1$MeanS, levels = c("0","1","3", "4"),ordered = TRUE)
-children1$MeanS <- factor(children1$MeanS, levels = c("0","1","3"),ordered = TRUE)
+#bcm.NOTE1: The round() function rounds 0.5 down to 0 and 1.5 up to 2.
+#bcm.NOTE2: when I combine MeanS levels 1 & 2, then polr() doesn't run with three levels (line 81), so to get polr() to run the previous group added a fourth group (level 4) that has 0 values in it.  With the dummy forth level, and levels (0, 1, 3, 4), polr() runs (line 80).  When I combine levels 0 & 1, I can run polr() with three levels (1, 2, 3) BUT the p-value for the new 1|2 cut is 0.53.  The previous group made the decision to combine 1 & 2 because with the original four levels (0, 1, 2, 3) the cut-level for 1|2 was 0.46.
+children1$MeanS <- round(children1$MeanSever, digits = 0)
+children1$MeanS[which(children1$MeanS == 2)] <- 1
+children1$MeanS <- factor(children1$MeanS, levels = c("0", "1", "3", "4"), ordered = TRUE)
+#children1$MeanS <- factor(children1$MeanS, levels = c("0","2","3"),ordered = TRUE)
 
-#Build ordinal logistic regression model                               
-fit1_1 <- polr(MeanS ~ Condition + Agency_Language + SRFactsTotal + SRTotal + Gender + Location + inagencyscore + OrderS, data = children1)
+#Build ordinal logistic regression model
+fit1_1 <- polr(
+    MeanS ~ Condition + Agency_Language + SRFactsTotal + SRTotal + Gender + Location + inagencyscore + OrderS,
+    data = children1
+  )
 summary(fit1_1)
 
-#Get p-value (this is NOT done correctly - need to fix)
+#Get p-value (this is NOT done correctly - or is it? - need to fix?)
 ctable <- coef(summary(fit1_1))
 #p2 <- 2*pt(-abs(ctable[, "t value"]),df=length(children1$MeanS)-9)
 p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
@@ -94,24 +146,80 @@ ctable1 <- cbind(ctable, "p value" = p)
 ctable1
 
 #Chi-square test
-drop1(fit1_1,test="Chi")
+drop1(fit1_1, test = "Chi")
 
 #Compute confusion table and misclassification error
 fitted <- predict(fit1_1)
-n <- table(children1$MeanS,fitted)
-percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]))
-rbind(n,percantage)
-ME <- mean(as.character(children1$MeanS) !=as.character(fitted))
-cat("Misclassification error is:",ME,"\n")
+n <- table(children1$MeanS, fitted)
+percantage <-
+  c(n[1, 1] / sum(n[1, ]), n[2, 2] / sum(n[2, ]), n[3, 3] / sum(n[3, ]))
+rbind(n, percantage)
+ME <- mean(as.character(children1$MeanS) != as.character(fitted))
+cat("Misclassification error is:", ME, "\n")
 
 #Plotting the binned residual plot
-obsmat <-model.matrix(~MeanS-1,data=children1)
-resdimat<-obsmat-fitted(fit1_1)
-par(mfrow=c(2,2))
+obsmat <- model.matrix( ~ MeanS - 1, data = children1)
+resdimat <- obsmat - fitted(fit1_1)
+par(mfrow = c(2, 2))
 
-binnedplot(fitted(fit1_1)[,1],resdimat[,1])
-binnedplot(fitted(fit1_1)[,2],resdimat[,2])
-binnedplot(fitted(fit1_1)[,3],resdimat[,3])
+binnedplot(fitted(fit1_1)[, 1], resdimat[, 1])
+binnedplot(fitted(fit1_1)[, 2], resdimat[, 2])
+binnedplot(fitted(fit1_1)[, 3], resdimat[, 3])
 
 brant(fit1_1)
+```
+
+# 2.1.2 Adults: Mean Severity Score
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Round and combine levels for Mean Severity (0=ok, 1=wrong, 2=very wrong, 3=extremely wrong),
+#NOTE: the round() function rounds 0.5 down to 0 and 1.5 up to 2
+# 0 => average score ≤ 1.25
+# 2 => average score > 1.5 & ≤ 2.5
+# 3 => average score > 2.5
+
+# adult1$MeanSeverity<-round(adult1$MeanSever)
+# adult1$MeanSeverity <- factor(adult1$MeanSeverity,levels = c("0","1","2","3"),ordered = TRUE)
+#
+# fit1_2 <- polr(MeanSeverity ~ Condition + Agency_Language + SRFactsTotal + SRTotal + Gender + inagencyscore, data = adult1)
+# summary(fit1_2) #AIC: 303.7906
+#
+# adult1$MeanS<-adult1$MeanSever
+adult1$MeanS <- round(adult1$MeanSever, digits = 0)
+adult1$MeanS[which(adult1$MeanS == 1)] <- 0
+adult1$MeanS <- factor(adult1$MeanS, levels = c("0", "2", "3"), ordered = TRUE)
+
+fit1_2 <- polr(
+  MeanS ~ Condition + Agency_Language + SRFactsTotal + SRTotal + Gender + inagencyscore + FirstLang, 
+  data = adult1
+)
+summary(fit1_2)
+
+#Get p-value
+ctable <- coef(summary(fit1_2))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable <- cbind(ctable, "p value" = p)
+ctable
+
+#Chi-square test
+drop1(fit1_2, test = "Chi")
+
+#Compute confusion table and misclassification error
+fitted <- predict(fit1_2)
+n <- table(adult1$MeanS, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]))
+rbind(n, round(percantage, digits = 2))
+ME <-
+  mean(as.character(adult1$MeanS) != as.character(fitted))
+cat("Misclassification error is:", ME, "\n")
+
+#Plotting the binned residual plot,
+obsmat <- model.matrix( ~ MeanS - 1, data = adult1)
+resdimat <- obsmat - fitted(fit1_2)
+par(mfrow = c(2, 2))
+
+binnedplot(fitted(fit1_2)[, 1], resdimat[, 1])
+binnedplot(fitted(fit1_2)[, 2], resdimat[, 2])
+binnedplot(fitted(fit1_2)[, 3], resdimat[, 3])
+
+brant(fit1_2)
 ```
