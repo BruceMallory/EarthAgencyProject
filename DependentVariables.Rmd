@@ -1,0 +1,468 @@
+---
+title: "Earth Agency - DependentVariables by Age"
+author: "Consulting Group 3"
+date: "2/23/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("knitr")
+library("kableExtra")
+library("gridExtra") 
+library("ggplot2")
+library("plyr")
+library("dplyr")
+```
+
+```{r, include=FALSE}
+#Change working directory to your own
+setwd("~/MSSP/Consulting/EarthAgencyProject")
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+
+adult1 <- adult %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    SRTotal,
+    invitalscore,
+    inpsychscore,
+    inagencyscore,
+    Gender,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    Sciclass,
+    FirstLang
+  ) %>%
+  mutate(Condition = factor(Condition))
+
+adult1 <- na.omit(adult1)
+adult1 <- adult1 %>%
+  mutate(
+    SRFactsTotal = as.integer(SRFactsTotal),
+    inagencyscore = as.integer(inagencyscore),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Gender = as.factor(Gender),
+    Agency_Language = as.factor(Agency_Language),
+    Sciclass = as.factor(Sciclass),
+    FirstLang = as.factor(FirstLang)
+  )
+
+children1 <- children %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    SRTotal,
+    invitalscore,
+    inpsychscore,
+    inagencyscore,
+    Location,
+    Gender,
+    Order,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal
+  ) %>%
+  mutate(Condition = factor(Condition))
+
+children1$OrderS <- substring(children1$Order, 1, 2)
+children1 <- na.omit(children1)
+
+children1 <- children1 %>%
+  mutate(
+    SRFactsTotal = as.integer(SRFactsTotal),
+    inagencyscore = as.integer(inagencyscore),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Gender = as.factor(Gender),
+    Location = as.factor(Location),
+    Agency_Language = as.factor(Agency_Language),
+    OrderS = as.factor(OrderS)
+  )
+#To take care of the one errant entry
+children1$MeanSever[children1$MeanSever==2.67] <- 2.5
+
+##-------------
+## COMBINING children and adult into one data.frame
+#Create children's data frame
+df_c <- children %>% 
+  select(
+    MeanSever, BioJtscore, AntJtscore, BioJFtotal, Condition
+    )
+Age <- rep("child", nrow(df_c))
+df_c <- df_c %>% mutate(Age)
+
+
+#To take care of the one errant entry
+df_c$MeanSever[df_c$MeanSever==2.67] <- 2.5
+
+#Create adult's data frame
+df_a <- adult %>% 
+  select(
+    MeanSever, BioJtscore, AntJtscore, BioJFtotal, Condition
+  )
+Age <- rep("adult", nrow(df_a))
+df_a <- df_a %>% mutate(Age)
+
+df <- bind_rows(df_c, df_a)
+
+###NOTE: Children$MeanSever[87] = 2.67 (BUT, mean severity scores are divided by 4 so .67 is not possible…).  We've coerced it to be 2.5, but  the validity of this score should be checked.
+
+```
+
+## 1.1 Original Mean Severity scores subsetted by Age and Condition
+
+```{r echo=FALSE, warning=FALSE, fig.height=4.5}
+
+adult1$Condition <- revalue(adult1$Condition, c("1"="Object", "2"="Nature", "3"="Person"))
+children1$Condition <- revalue(children1$Condition, c("1"="Object", "2"="Nature", "3"="Person"))
+
+Adlts <- ggplot(data=adult1, aes(MeanSever, y=..count../sum(..count..), fill=Condition)) +
+  geom_bar(color="white", width=.125) +
+  labs(title="Adults", x="Mean Severity Score (original)", y="Proportion") +
+  coord_cartesian(ylim=c(0, .2), xlim=c(0,3)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.90, .85),
+        legend.title = element_text(size=8),
+        legend.text = element_text(size=7)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+chldrn <- ggplot(data=children1, aes(MeanSever, y=..count../sum(..count..), fill=Condition)) +
+  geom_bar(color="white", width=.125) +
+  labs(title="Children", x="Mean Severity Score (original)", y="")  +
+  coord_cartesian(ylim=c(0, .2), xlim=c(0,3)) +
+  guides(fill="none") +
+  theme(axis.line.y=element_line(color="grey", size=.25),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank()) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+grid.arrange(Adlts, chldrn, ncol=2)
+```
+\newpage
+
+## 1.2 Original Mean Severity scores and grouped Mean Severity scores  
+```{r echo=FALSE, message=FALSE, fig.height=3}
+
+#Calculate % in each of the 13 MeanSeverity outcomes for children
+df_c_MS <- df_c %>% 
+  group_by(MeanSever) %>% 
+  summarise(n=n(), Age="child") %>% 
+  mutate(prop=n/sum(n))
+
+#Calculate % in each of the 13 MeanSeverity outcomes for Adults
+df_a_MS <- df_a %>% 
+  group_by(MeanSever) %>% 
+  summarise(n=n(), Age="adult") %>% 
+  mutate(prop=n/sum(n))
+
+df_MS <- bind_rows(df_c_MS, df_a_MS)
+
+par(mfrow=c(2,1))
+
+ggplot(df_MS, aes(x=MeanSever, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="Mean Severity Score (original)", y="Proportion") +
+  coord_cartesian(ylim=c(0, .2), xlim=c(0,3)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.15, .84)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+table_MS <- data.frame(
+  Severity_Score=seq(0,3,length.out=13),
+  Adults = as.numeric(df_MS$n[df_MS$Age=="adult"]),
+  children = as.numeric(rep(0,13))
+  )
+table_MS$children[3:13] <- df_MS$n[df_MS$Age=="child"]
+table_MS <- mutate(table_MS, TOTAL=Adults+children)
+table_MS$Adults <- format(table_MS$Adults, digits=2, nsmall=0)
+table_MS$children <- format(table_MS$children, digits=2, nsmall=0)
+table_MS$TOTAL <- format(table_MS$TOTAL, digits=2, nsmall=0)
+
+kable(t(table_MS))
+
+```
+  
+0 = "ok", 1 = "wrong", 2 = "very wrong", 3 = "extremely wrong"  
+\newline
+\newline
+  
+```{r echo=FALSE, message=FALSE, fig.height=3}
+
+#To group the scores into {1, 2, 3}
+df_c$MeanSever[df_c$MeanSever<1.1] <- 1
+df_c$MeanSever[df_c$MeanSever>1 & df_c$MeanSever<2.1] <- 2
+df_c$MeanSever[df_c$MeanSever>2 &df_c$MeanSever<3.1] <- 3
+
+#Calculate % in each of the 3 grouped MeanSeverity outcomes for children
+df_c_MS <- df_c %>% 
+  group_by(MeanSever) %>% 
+  summarise(n=n(), Age="child") %>% 
+  mutate(prop=n/sum(n))
+
+#To group the scores into {1, 2, 3}
+df_a$MeanSever[df_a$MeanSever<1.1] <- 1
+df_a$MeanSever[df_a$MeanSever>1 & df_a$MeanSever<2.1] <- 2
+df_a$MeanSever[df_a$MeanSever>2 & df_a$MeanSever<3.1] <- 3
+
+#Calculate % in each of the 3 grouped MeanSeverity outcomes for children
+df_a_MS <- df_a %>% 
+  group_by(MeanSever) %>% 
+  summarise(n=n(), Age="adult") %>% 
+  mutate(prop=n/sum(n))
+
+df_MS <- bind_rows(df_c_MS, df_a_MS)
+
+par(mfrow=c(2,1))
+ggplot(df_MS, aes(x=MeanSever, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="Mean Severity Score (grouped)", y="Proportion") +
+  coord_cartesian(ylim=c(0, .6), xlim=c(0,3.5)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.15, .84)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+table_MS <- data.frame(
+  Severity_Score=c(1:3),
+  Adults = as.numeric(df_MS$n[df_MS$Age=="adult"]),
+  children = as.numeric(df_MS$n[df_MS$Age=="child"])
+  )
+table_MS <- mutate(table_MS, TOTAL=Adults+children)
+table_MS$Adults <- format(table_MS$Adults, digits=2, nsmall=0)
+table_MS$children <- format(table_MS$children, digits=2, nsmall=0)
+table_MS$TOTAL <- format(table_MS$TOTAL, digits=2, nsmall=0)
+
+kable(t(table_MS))
+```
+  
+1 = "ok or wrong" ($original \le 1$), 2 = "very wrong" ($original \le 2$), 3 = "extremely wrong" ($original \le 3$)  
+\newpage
+
+## 2.1 Justifications citing Biocentric reasons
+```{r echo=FALSE, warning=FALSE, fig.height=2.75}
+
+#Remove the one NA in BioJtscore (and AntJtscore)
+df_c <- df_c[!is.na(df_c$BioJtscore), ]
+
+#Calculate % in each of the 5 BioJtscore outcomes for children
+
+df_c_BC <- df_c %>% 
+  group_by(BioJtscore) %>% 
+  summarise(n=n(), Age="child") %>% 
+  mutate(prop=n/sum(n))
+
+#Calculate % in each of the 5 BioJtscore outcomes for Adults
+df_a_BC <- df_a %>% 
+  group_by(BioJtscore) %>% 
+  summarise(n=n(), Age="adult") %>% 
+  mutate(prop=n/sum(n))
+
+df_BC <- bind_rows(df_c_BC, df_a_BC)
+
+par(mfrow=c(2,1))
+ggplot(df_BC, aes(x=BioJtscore, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="Justifications citing biocentric reason", y="Proportion") +
+  coord_cartesian(ylim=c(0, .45), xlim=c(-0.5,4.5)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.1, .84)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+table_BC <- data.frame(
+  Biocentric_Score=0:4,
+  Adults = as.numeric(df_BC$n[df_BC$Age=="adult"]),
+  children = as.numeric(df_BC$n[df_BC$Age=="child"])
+  )
+table_BC <- mutate(table_BC, TOTAL=Adults+children)
+table_BC$Adults <- format(table_BC$Adults, digits=2, nsmall=0)
+table_BC$children <- format(table_BC$children, digits=2, nsmall=0)
+table_BC$TOTAL <- format(table_BC$TOTAL, digits=2, nsmall=0)
+
+kable(t(table_BC))
+
+### NOTES: children$BioJtscore[41]=NA and children$AntJtscore[41]=NA We've removed this record.  Is there a correct score for this record?
+```
+
+## 3.1 Justifications citing Anthropocentric reasons
+```{r echo=FALSE, warning=FALSE, fig.height=2.75}
+
+#Calculate % in each of the 5 AntJtscore outcomes for children
+df_c_AC <- df_c %>% 
+  group_by(AntJtscore) %>% 
+  summarise(n=n(), Age="child") %>% 
+  mutate(prop=n/sum(n))
+
+#Calculate % in each of the 5 AntJtscore outcomes for Adults
+df_a_AC <- df_a %>% 
+  group_by(AntJtscore) %>% 
+  summarise(n=n(), Age="adult") %>% 
+  mutate(prop=n/sum(n))
+
+df_AC <- bind_rows(df_c_AC, df_a_AC)
+
+par(mfrow=c(2,1))
+ggplot(df_AC, aes(x=AntJtscore, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="Justifications citing antrhopocentric reason", y="Proportion") +
+  coord_cartesian(ylim=c(0, .45), xlim=c(-0.5,4.5)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.1, .84)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+table_AC <- data.frame(
+  Anthrocentric_Score=0:4,
+  Adults = as.numeric(df_AC$n[df_AC$Age=="adult"]),
+  children = as.numeric(df_AC$n[df_AC$Age=="child"])
+  )
+table_AC <- mutate(table_AC, TOTAL=Adults+children)
+table_AC$Adults <- format(table_AC$Adults, digits=2, nsmall=0)
+table_AC$children <- format(table_AC$children, digits=2, nsmall=0)
+table_AC$TOTAL <- format(table_AC$TOTAL, digits=2, nsmall=0)
+
+kable(t(table_AC))
+```
+
+## 4.1 Given the choice (Biocentric or Anthopocentric), number of Biocentric justifications chosen
+```{r echo=FALSE, warning=FALSE, fig.height=2.75}
+
+#Calculate % in each of the 4 BioFtotal outcomes for children
+df_c_BorA <- df_c %>% 
+  group_by(BioJFtotal) %>% 
+  summarise(n=n(), Age="child") %>% 
+  mutate(prop=n/sum(n))
+
+#Calculate % in each of the 5 BioFtotal outcomes for Adults
+df_a_BorA <- df_a %>% 
+  group_by(BioJFtotal) %>% 
+  summarise(n=n(), Age="adult") %>% 
+  mutate(prop=n/sum(n))
+
+#Row to include the fact that there were no BioJtotal=0 for the adults
+df_a_empty <- data.frame(
+  BioJFtotal = 0,
+  n = 0,
+  Age = "adult",
+  prop = 0.0
+)
+
+df_BorA <- bind_rows(df_c_BorA, df_a_empty, df_a_BorA)
+
+par(mfrow=c(2,1))
+ggplot(df_BorA, aes(x=BioJFtotal, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="Number of Biocentric chosen", y="Proportion") +
+  coord_cartesian(ylim=c(0, .60), xlim=c(-0.5,4.5)) +
+  theme(axis.line.y=element_line(color="black", size=.5),
+        panel.background = element_blank(), 
+        panel.grid.major.x = element_line(color="grey", size=0.25),
+        panel.grid.minor.x = element_blank(),
+        panel.grid.major.y = element_line(color="grey", size=0.25),
+        panel.grid.minor.y = element_blank(),
+        legend.position = c(.1, .84)) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+table_BorA <- data.frame(
+  Numb_Bio_Chosen=0:4,
+  Adults = as.numeric(df_BorA$n[df_BorA$Age=="adult"]),
+  children = as.numeric(df_BorA$n[df_BorA$Age=="child"])
+  )
+table_BorA <- mutate(table_BorA, TOTAL=Adults+children)
+table_BorA$Adults <- format(table_BorA$Adults, digits=2, nsmall=0)
+table_BorA$children <- format(table_BorA$children, digits=2, nsmall=0)
+table_BorA$TOTAL <- format(table_BorA$TOTAL, digits=2, nsmall=0)
+
+kable(t(table_BorA))
+```
+\newpage 
+## 5.1 Correlation between Condition and Phase 3 questionnaire?
+For each of the four comparisons shown, the Fisher test p-value is given.  We did a Fisher test because the conditions for a Pearson's Chi-squared test (all expected values $\ge$ 5) were not met.  
+\newline
+```{r echo=FALSE, warning=FALSE, fig.height=3.5}
+ft.1 <- round(fisher.test(table(adult1$Condition, adult1$invitalscore))$p.value, 3)
+gg.1 <- ggplot(adult1, aes(x=Condition, fill = factor(invitalscore))) +
+  geom_bar() +
+  scale_fill_hue() +
+  theme_minimal(base_size=10) +
+  scale_x_discrete(labels = c('Object','Nature','Human')) +
+  guides(fill=guide_legend(title="")) +
+  labs(title = "Adults (invitalscore)", 
+       subtitle = paste("p-value = ", ft.1))
+
+ft.2 <- round(fisher.test(table(adult1$Condition, adult1$inpsychscore))$p.value, 3)
+gg.2 <- ggplot(adult1) +
+  aes(x=Condition, fill = factor(inpsychscore)) +
+  geom_bar() +
+  scale_fill_hue() +
+  theme_minimal(base_size=10) +
+  scale_x_discrete(labels = c('Object','Nature','Human')) +
+  guides(fill=guide_legend(title="")) +
+  labs(title = "Adults (inpsychscore)", 
+       subtitle = paste("p-value = ", ft.2))
+
+ft.3 <- round(fisher.test(table(children1$Condition, children1$invitalscore))$p.value, 3)
+gg.3 <- ggplot(children1) +
+  aes(x=Condition, fill = factor(invitalscore)) +
+  geom_bar() +
+  scale_fill_hue() +
+  theme_minimal(base_size=10) +
+  scale_x_discrete(labels = c('Object','Nature','Human')) +
+  guides(fill=guide_legend(title="")) +
+  labs(title = "Children (invitalscore)", 
+       subtitle = paste("p-value = ", ft.3))
+
+ft.4 <- round(fisher.test(table(children1$Condition, children1$inpsychscore))$p.value, 3)
+gg.4 <- ggplot(children1) +
+  aes(x=Condition, fill = factor(inpsychscore)) +
+  geom_bar() +
+  scale_fill_hue() +
+  theme_minimal(base_size=10) +
+  scale_x_discrete(labels = c('Object','Nature','Human')) +
+  guides(fill=guide_legend(title="")) +
+  labs(title = "Children (inpsychscore)", 
+       subtitle = paste("p-value = ", ft.4))
+
+grid.arrange(gg.1, gg.2, ncol=2)
+```
+\newline
+\newline
+\newline
+\newline
+```{r echo=FALSE, warning=FALSE, fig.height=3.5}
+    grid.arrange(gg.3, gg.4, ncol=2)
+```
+    
