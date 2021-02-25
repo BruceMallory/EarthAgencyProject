@@ -1,0 +1,104 @@
+---
+title: "March 1 Report"
+author: "Consulting Group 3"
+date: "2/24/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+## Code to create AC_df, the combined data.frame with all variables that we are investigating
+```{r echo=FALSE}
+#Change working directory to your own
+setwd("~/MSSP/Consulting/EarthAgencyProject")
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+
+adult_df <- adult %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    FirstLang
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language),
+    FirstLang = as.factor(FirstLang)
+  )
+
+#to add an age variable
+Age <- rep("adult", nrow(adult_df))
+adult_df <- adult_df %>% 
+  mutate(Age)
+
+#compress scores to match invitalscore and inpsychscore for children
+adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
+adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
+adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+
+adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
+adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
+adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
+
+child_df <- children %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language)
+  )
+Age <- rep("child", nrow(child_df))
+#We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
+FirstLang <- rep(1, nrow(child_df))
+child_df <- child_df %>% 
+  mutate(
+    FirstLang = as.factor(FirstLang),
+    Age
+    )
+
+#To take care of the one errant entry, children[87] (mean severity scores are divided by 4 so .67 is not possible…)
+child_df$MeanSever[child_df$MeanSever==2.67] <- 2.5
+
+#To remove children[41] which has no BIoJtscore or AntJtscore
+#To remove children[45] which has no Agency_Language or SRFactsTotal
+child_df <- na.omit(child_df)
+
+## COMBINING children and adult into one data.frame
+AC_df <- bind_rows(adult_df, child_df)
+
+#Giving factor levels cleaner language
+AC_df$Condition <- revalue(AC_df$Condition, c("1"="Obj", "2"="Nat", "3"="Per"))
+AC_df$Agency_Language <- revalue(AC_df$Agency_Language, c("0"="Obj", "2"="Nat", "3"="Per"))
+
+```
+## Tasks
+1) Verify the data decisions (with Lizette?) that are noted in the code chunk above.  
+2) Fit the polr() model for each of the four dependent variables (MeanSever, BioJtscore, AntJtscore, BioJFtotal), using the independent variables (Condition, Agency_Language, SRFactsTotal, invitalscore, inpsychscore, FirstLang, Age)
+3) Fit a linear regression model using same variables, and compare to the polr() model.  If it's comprable, then the interprebility of the linear model would argue for using it.
+4) Check for multicollinearity in the models using the variance inflation factor (VIF).  And drop out variable if appropriate.
+5) Do an ANOVA on the final model to determine significance of Condition and Age.
