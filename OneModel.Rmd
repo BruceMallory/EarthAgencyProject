@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
+library(plyr)
 ```
 ## Code to create AC_df, the combined data.frame with all variables that we are investigating
 ```{r echo=FALSE}
