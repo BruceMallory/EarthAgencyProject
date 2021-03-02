@@ -1,0 +1,403 @@
+---
+title: "Ordinal Model"
+author: "Rong Li,Congyao Duan"
+date: "2021/2/25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant")
+```
+
+## R Markdown
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+require("knitr")
+opts_knit$set(root.dir = "C:/User/rong.li/Desktop/新建文件夹/MA676")
+library(dplyr)
+library(plyr)
+```
+
+## Code to create AC_df, the combined data.frame with all variables that we are investigating
+
+```{r echo=FALSE}
+
+#Change working directory to your own
+
+setwd("C:/Users/rong.li/Desktop/新建文件夹/MA676")
+
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+
+
+
+adult_df <- adult %>%
+
+  dplyr::select(
+
+    Condition,
+
+    Agency_Language,
+
+    SRFactsTotal,
+
+    invitalscore,
+
+    inpsychscore,
+
+    MeanSever,
+
+    BioJtscore,
+
+    AntJtscore,
+
+    BioJFtotal,
+
+    FirstLang,
+
+    Age
+
+  ) %>%
+
+  mutate(
+
+    Condition = as.factor(Condition),
+
+    SRFactsTotal = as.integer(SRFactsTotal),
+
+    invitalscore = as.integer(invitalscore),
+
+    inpsychscore = as.integer(inpsychscore),
+
+    Agency_Language = as.factor(Agency_Language),
+
+    FirstLang = as.factor(FirstLang),
+
+    Age
+
+  )
+
+
+
+
+
+
+
+#compress scores to match invitalscore and inpsychscore for children
+
+adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+
+adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
+
+adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
+
+adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+
+
+
+adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
+
+adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
+
+adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
+
+
+
+child_df <- children %>%
+
+  dplyr::select(
+
+    Condition,
+
+    Agency_Language,
+
+    SRFactsTotal,
+
+    invitalscore,
+
+    inpsychscore,
+
+    MeanSever,
+
+    BioJtscore,
+
+    AntJtscore,
+
+    BioJFtotal,
+
+    Age
+
+  ) %>%
+
+  mutate(
+
+    Condition = as.factor(Condition),
+
+    SRFactsTotal = as.integer(SRFactsTotal),
+
+    invitalscore = as.integer(invitalscore),
+
+    inpsychscore = as.integer(inpsychscore),
+
+    Agency_Language = as.factor(Agency_Language),
+
+    Age 
+
+  )
+
+
+
+#We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
+
+FirstLang <- rep(1, nrow(child_df))
+
+child_df <- child_df %>% 
+
+  mutate(
+
+    FirstLang = as.factor(FirstLang),
+
+    )
+
+
+
+#To take care of the one errant entry, children[87] (mean severity scores are divided by 4 so .67 is not possible…)
+
+child_df$MeanSever[child_df$MeanSever==2.67] <- 2.5
+
+
+
+#To remove children[41] which has no BIoJtscore or AntJtscore
+
+#To remove children[45] which has no Agency_Language or SRFactsTotal
+
+child_df <- na.omit(child_df)
+
+
+
+## COMBINING children and adult into one data.frame
+
+AC_df <- rbind(adult_df, child_df)
+
+
+
+#Giving factor levels cleaner language
+
+AC_df$Condition <- revalue(AC_df$Condition, c("1"="Obj", "2"="Nat", "3"="Per"))
+
+AC_df$Agency_Language <- revalue(AC_df$Agency_Language, c("0"="Obj", "2"="Nat", "3"="Per"))
+
+AC_df$Age <- ifelse(AC_df$Age > 10, "Adult", "Child")
+
+AC_df$Age <- factor(AC_df$Age)
+
+```
+
+## Tasks
+
+1) Verify the data decisions (with Lizette?) that are noted in the code chunk above.  
+
+2) Fit the polr() model for each of the four dependent variables (MeanSever, BioJtscore, AntJtscore, BioJFtotal), using the independent variables (Condition, Agency_Language, SRFactsTotal, invitalscore, inpsychscore, FirstLang, Age)
+
+3) Fit a linear regression model using same variables, and compare to the polr() model.  If it's comprable, then the interprebility of the linear model would argue for using it.
+
+4) Check for multicollinearity in the models using the variance inflation factor (VIF).  And drop out variable if appropriate.
+
+5) Do an ANOVA on the final model to determine significance of Condition and Age.
+
+# Ordinal model
+```{r}
+#Meansever
+AC_df$MeanSever <- factor(AC_df$MeanSever, ordered = TRUE)
+
+plor.fit1 <- polr(MeanSever ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit1)
+
+#Get p-value
+ctable <- coef(summary(plor.fit1))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit1)
+n <- table(AC_df$MeanSever, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]), n[5,5]/sum(n[5,]), n[6,6]/sum(n[6,]), n[7,7]/sum(n[7,]), n[8,8]/sum(n[8,]), n[9,9]/sum(n[9,]), n[10,10]/sum(n[10,]), n[11,11]/sum(n[11,]), n[12,12]/sum(n[12,]), n[13,13]/sum(n[13,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$MeanSever) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+```{r}
+#Meansever with Combination
+AC_df$comMeanSever <- AC_df$MeanSever
+AC_df$comMeanSever[which((AC_df$MeanSever == 1.5))]<-1.25
+AC_df$comMeanSever[which((AC_df$MeanSever == 1.75))]<-1.25
+AC_df$comMeanSever[which((AC_df$MeanSever == 2))]<-1.25
+AC_df$comMeanSever[which((AC_df$MeanSever == 2.25))]<-1.25
+AC_df$comMeanSever <- factor(AC_df$comMeanSever, ordered = TRUE)
+
+plor.fit1c <- polr(comMeanSever ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit1c)
+
+#Get p-value
+ctable <- coef(summary(plor.fit1c))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit1c)
+n <- table(AC_df$comMeanSever, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]), n[5,5]/sum(n[5,]), n[6,6]/sum(n[6,]), n[7,7]/sum(n[7,]), n[8,8]/sum(n[8,]), n[9,9]/sum(n[9,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$comMeanSever) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+
+```{r}
+#BioJtscore
+AC_df$BioJtscore <- factor(AC_df$BioJtscore, levels = c("0","1","2","3","4"),ordered = TRUE)
+
+plor.fit2 <- polr(BioJtscore ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit2)
+
+#Get p-value
+ctable <- coef(summary(plor.fit2))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit2)
+n <- table(AC_df$BioJtscore, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]), n[5,5]/sum(n[5,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$BioJtscore) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+
+```{r}
+#BioJtscore with Combination
+AC_df$comBioJtscore<-AC_df$BioJtscore
+AC_df$comBioJtscore[which((AC_df$comBioJtscore==2))]<-1
+AC_df$comBioJtscore<- factor(AC_df$comBioJtscore, levels = c("0","1","3","4"),ordered = TRUE)
+
+plor.fit2c <- polr(comBioJtscore ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit2c)
+
+#Get p-value
+ctable <- coef(summary(plor.fit2c))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit2c)
+n <- table(AC_df$comBioJtscore, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$comBioJtscore) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+
+
+```{r}
+#AntJtscore
+AC_df$AntJtscore <- factor(AC_df$AntJtscore, levels = c("0","1","2","3","4"),ordered = TRUE)
+
+plor.fit3<- polr(AntJtscore~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit3)
+
+#Get p-value
+ctable <- coef(summary(plor.fit3))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit3)
+n <- table(AC_df$AntJtscore, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]), n[5,5]/sum(n[5,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$AntJtscore) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+
+```{r}
+#AntJtscore with Combination
+AC_df$comAntJtscore<-AC_df$AntJtscore
+AC_df$comAntJtscore[which((AC_df$comAntJtscore==2))]<-1
+AC_df$comAntJtscore<- factor(AC_df$comAntJtscore, levels = c("0","1","3","4"),ordered = TRUE)
+
+plor.fit3c<- polr(comAntJtscore~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit3c)
+
+#Get p-value
+ctable <- coef(summary(plor.fit3c))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit3c)
+n <- table(AC_df$comAntJtscore, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$comAntJtscore) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+```{r}
+#BioJFtotal
+AC_df$BioJFtotal <- factor(AC_df$BioJFtotal, levels = c("0","1","2","3","4"),ordered = TRUE)
+
+plor.fit4 <- polr(BioJFtotal ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit4)
+
+#Get p-value
+ctable <- coef(summary(plor.fit4))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit4)
+n <- table(AC_df$BioJFtotal, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]), n[5,5]/sum(n[5,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$BioJFtotal) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
+
+```{r}
+#BioJFtotal with Combination
+AC_df$comBioJFtotal<-AC_df$BioJFtotal
+AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==3))]<-2
+AC_df$comBioJFtotal<- factor(AC_df$comBioJFtotal, levels = c("0","1","2","4"),ordered = TRUE)
+
+plor.fit4c <- polr(comBioJFtotal ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
+summary(plor.fit4c)
+
+#Get p-value
+ctable <- coef(summary(plor.fit4c))
+p <- pnorm(abs(ctable[, "t value"]), lower.tail = FALSE) * 2
+ctable1 <- cbind(ctable, "p value" = p)
+ctable1
+
+#Compute confusion table and misclassification error
+fitted <- predict(plor.fit4c)
+n <- table(AC_df$comBioJFtotal, fitted)
+percantage <- c(n[1,1]/sum(n[1,]),n[2,2]/sum(n[2,]),n[3,3]/sum(n[3,]), n[4,4]/sum(n[4,]))
+rbind(n,percantage)
+ME <- mean(as.character(AC_df$comBioJFtotal) !=as.character(fitted))
+cat("Misclassification error is:",ME,"\n")
+```
