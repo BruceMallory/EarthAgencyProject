@@ -549,7 +549,7 @@ ME <- mean(as.character(AC_df$comBioJFtotal) !=as.character(fitted))
 cat("Misclassification error is:",ME,"\n")
 ```
 
-# 4.4 Linear Regression
+# 5.1 Linear Regression
 ```{r}
 lm.fit1 <- lm(MeanSever ~ Condition + Agency_Language + 
                 SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, data = AC_df)
@@ -574,6 +574,7 @@ summary(lm.fit4)
 
 ```
 
+# 5.2 Binned Residual Plots
 ```{r}
 library(arm)
 binnedplot(fitted(lm.fit1),resid(lm.fit1))
@@ -582,7 +583,7 @@ binnedplot(fitted(lm.fit3),resid(lm.fit3))
 binnedplot(fitted(lm.fit4),resid(lm.fit4))
 ```
 
-# 4.5 Multicollinearity Check using VIF
+# 5.3 Multicollinearity Check using VIF
 ```{r}
 VIF(lm.fit1)
 VIF(lm.fit2)
