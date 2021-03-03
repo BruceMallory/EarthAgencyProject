@@ -589,3 +589,29 @@ VIF(lm.fit2)
 VIF(lm.fit3)
 VIF(lm.fit4)
 ```
+
+# 5.4 Anova test comparing Age
+```{r}
+#Mean Severity
+plor.fit1c2 <- polr(comMeanSever ~  Condition + Agency_Language + SRFactsTotal + invitalscore  + inpsychscore + FirstLang, data = AC_df)
+
+anova(plor.fit1c, plor.fit1c2)
+
+
+#Biocentric Justification score
+plor.fit2c2 <- polr(comBioJtscore ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang, data = AC_df)
+
+anova(plor.fit2c, plor.fit2c2)
+
+
+#Anthropocentric Justification score
+plor.fit3c2<- polr(comAntJtscore~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang, data = AC_df)
+
+anova(plor.fit3c,plor.fit3c2)
+
+
+#Biocentric choice score
+plor.fit4c2 <- polr(comBioJFtotal ~  Condition + Agency_Language + SRFactsTotal +invitalscore  + inpsychscore + FirstLang, data = AC_df)
+
+anova(plor.fit4c,plor.fit4c2)
+```
