@@ -19,7 +19,7 @@ library(dplyr)
 library(plyr)
 ```
 
-## Code to create AC_df, the combined data.frame with all variables that we are investigating  
+# Code to create AC_df, the combined data.frame with all variables that we are investigating  
 ```{r echo=FALSE}
 
 #Change working directory to your own
@@ -526,8 +526,8 @@ cat("Misclassification error is:",ME,"\n")
 #BioJFtotal with Combination
 AC_df$comBioJFtotal<-AC_df$BioJFtotal
 AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==0))]<-1
-AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==2))]<-1
-AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==3))]<-2
+#AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==2))]<-1
+#AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==3))]<-2
 AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==4))]<-3
 AC_df$comBioJFtotal<- factor(AC_df$comBioJFtotal, ordered = TRUE)
 
