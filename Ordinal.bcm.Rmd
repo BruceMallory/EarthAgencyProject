@@ -7,14 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant")
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "regclass", "plyr")
 ```
 
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE)
 require("knitr")
-opts_knit$set(root.dir = "C:/User/rong.li/Desktop/新建文件夹/MA676")
 library(dplyr)
 library(plyr)
 ```
@@ -22,9 +21,6 @@ library(plyr)
 # Code to create AC_df, the combined data.frame with all variables that we are investigating  
 ```{r echo=FALSE}
 
-#Change working directory to your own
-
-setwd("~/MSSP/Consulting/EarthAgencyProject")
 
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 
@@ -551,4 +547,45 @@ prop.correct <- round(100*prop.correct, 0)
 rbind(n,prop.correct)
 ME <- mean(as.character(AC_df$comBioJFtotal) !=as.character(fitted))
 cat("Misclassification error is:",ME,"\n")
+```
+
+# 4.4 Linear Regression
+```{r}
+lm.fit1 <- lm(MeanSever ~ Condition + Agency_Language + 
+                SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, data = AC_df)
+
+summary(lm.fit1)
+
+lm.fit2 <- lm(BioJtscore ~ Condition + Agency_Language + 
+                SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, data = AC_df)
+
+summary(lm.fit2)
+
+lm.fit3 <- lm(AntJtscore ~ Condition + Agency_Language + 
+                SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, data = AC_df)
+
+summary(lm.fit3)
+
+lm.fit4 <- lm(BioJFtotal ~ Condition + Agency_Language + 
+                SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, data = AC_df)
+
+summary(lm.fit4)
+
+
+```
+
+```{r}
+library(arm)
+binnedplot(fitted(lm.fit1),resid(lm.fit1))
+binnedplot(fitted(lm.fit2),resid(lm.fit2))
+binnedplot(fitted(lm.fit3),resid(lm.fit3))
+binnedplot(fitted(lm.fit4),resid(lm.fit4))
+```
+
+# 4.5 Multicollinearity Check using VIF
+```{r}
+VIF(lm.fit1)
+VIF(lm.fit2)
+VIF(lm.fit3)
+VIF(lm.fit4)
 ```
