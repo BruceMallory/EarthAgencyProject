@@ -13,6 +13,7 @@ library(plyr)
 ## Code to create AC_df, the combined data.frame with all variables that we are investigating
 ```{r echo=FALSE}
 #Change working directory to your own
+setwd("~/MSSP/Consulting/EarthAgencyProject")
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
 
@@ -97,6 +98,18 @@ AC_df$Agency_Language <- revalue(AC_df$Agency_Language, c("0"="Obj", "2"="Nat", 
 AC_df$Age <- ifelse(AC_df$Age > 10, "Adult", "Child")
 AC_df$Age <- factor(AC_df$Age)
 
+#To check for correlation among independent variables
+AC_indep <- AC_df %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    FirstLang,
+    Age)
+
+polycor::hetcor(AC_indep)
 ```
 ## Tasks
 1) Verify the data decisions (with Lizette?) that are noted in the code chunk above.  
