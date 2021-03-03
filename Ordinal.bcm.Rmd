@@ -576,7 +576,6 @@ summary(lm.fit4)
 
 # 5.2 Binned Residual Plots
 ```{r}
-library(arm)
 binnedplot(fitted(lm.fit1),resid(lm.fit1))
 binnedplot(fitted(lm.fit2),resid(lm.fit2))
 binnedplot(fitted(lm.fit3),resid(lm.fit3))
