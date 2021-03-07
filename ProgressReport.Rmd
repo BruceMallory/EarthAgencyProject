@@ -1,0 +1,250 @@
+---
+title: "Earth Agency Project, Progress Report"
+author: "Consulting Team A, group 3"
+date: "March 7th, 2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "regclass", "plyr")
+```
+   
+## 1. Decisions made in creating the working data frame
+  
+  (a) We have combined *EarthAgency_Adults_R.csv* and *EarthAgency_Children_R.csv* into one data.frame: `AC_df`.  We have done this so that we can make an Adult vs. children comparison.  To combined the two data sets we have done b-d.
+  
+  (b) To normalize the adult and children's `invitalscores`, we have compressed the adult's scores (which ranged from 0-5), to match the children's scores (which ranged from 0-3).  
+   
+ **original**....**normalized**  
+0 or 1......= 0  
+2...........= 1  
+3...........= 2  
+4 or 5......= 3  
+  
+ (c) To normalize the adult and children's `inpsychscore`, we have compressed the adult's scores (which ranged from 0-5), to match the children's scores (which ranged from 0-4).  
+  
+ **original**....**normalized**  
+0...........= 0  
+1...........= 1  
+2 or 3......= 2  
+4...........= 3  
+5...........= 4  
+  
+ (d) We have added `FirstLang` to the children's records, and assigned every child a value of 1 for `FirstLang`.  We're assuming that 1=using first language, and 0=not using first language.    
+  
+ (e) The 87th entry in the children's record's has a `MeanSeverity` of 2.67.  But 2.67 is not a possible value (given that `MeanSeverity` is an average of 4 integer scores, and should thus be a multiple of 0.25).  We've changed the `MeanSeverity` for that record to 2.5.  
+  
+ (f) The 41st children's record has no `BIoJtscore` or `AntJtscore`.  We did not use this record in the data.frame.  
+  
+ (g) The 45th children's record has no `Agency_Language` or `SRFactsTotal`.  We did not use this record in the data.frame.  
+  
+  (h) We have renamed the `Condition` levels to `Obj` (object), `Nat` (nature, animal, vitalist), `Per` (person, psychological), for ease of understanding and consistency while we were coding. \newpage 
+  (i) For a better model fit, we have combined the original 13 levels of `MeanSeverity` into three levels, as follows:  
+  
+  **original**  
+  0.00, 0.25, 0.50, 0.75, 1.00, 1.25 **|** 1.50, 1.75, 2.00 **|** 2.25, 2.50, 2.75, 3.00  
+  **combined**  
+  0 to 1.25......= 1  
+  1.50 to 2.00...= 2  
+  2.25 to 3.00...= 3  
+  
+  (j) For a better model fit, we have combined the original 5 levels of `BioJtscore` (the number of scenarios where the respondent used a biocentric justification), into three levels, as follows:  
+  
+  **original**  
+  0, 1, 2 **|** 3 **|** 4  
+  **combined**  
+  0, 1 and 2...= 1  
+  3............= 2  
+  4............= 3  
+  
+  (j) For a better model fit, we have combined the original 5 levels of `AntJtscore` (the number of scenarios where the respondent used an anthropocentric justification), into three levels, as follows:  
+    
+  **original**  
+  0, 1, 2 **|** 3 **|** 4  
+  **combined**  
+  0, 1 and 2...= 1  
+  3............= 2  
+  4............= 3  
+  
+  (k) For a better model fit, we have combined the original 5 levels of `BioJFtotal` (the number of scenarios where the respondent chose biocentric when given a choice between biocentric and anthropocentric), into three levels, as follows:  
+  
+  **original**  
+  0, 1 **|** 2 **|** 3, 4  
+  **combined**  
+  0 and 1......= 1  
+  2............= 2  
+  3 and 4......= 3  
+  
+```{r echo=FALSE}
+
+setwd("~/MSSP/Consulting/EarthAgencyProject")
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+
+adult_df <- adult %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    FirstLang,
+    Age
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language),
+    FirstLang = as.factor(FirstLang),
+    Age
+  )
+
+#compress scores to match invitalscore and inpsychscore for children
+
+adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
+adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
+adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+
+adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
+adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
+adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
+
+child_df <- children %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    Age
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language),
+    Age 
+  )
+
+#We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
+FirstLang <- rep(1, nrow(child_df))
+child_df <- child_df %>% 
+  mutate(
+    FirstLang = as.factor(FirstLang),
+    )
+
+#To take care of the one errant entry, children[87] (mean severity scores are divided by 4 so .67 is not possible…)
+child_df$MeanSever[child_df$MeanSever==2.67] <- 2.5
+
+#To remove children[41] which has no BIoJtscore or AntJtscore
+#To remove children[45] which has no Agency_Language or SRFactsTotal
+child_df <- na.omit(child_df)
+
+## COMBINING children and adult into one data.frame
+AC_df <- rbind(adult_df, child_df)
+
+#Giving factor levels cleaner language
+AC_df$Condition <- revalue(AC_df$Condition, c("1"="Obj", "2"="Nat", "3"="Per"))
+AC_df$Agency_Language <- revalue(AC_df$Agency_Language, c("0"="Obj", "2"="Nat", "3"="Per"))
+AC_df$Age <- ifelse(AC_df$Age > 10, "Adult", "Child")
+AC_df$Age <- factor(AC_df$Age)
+```
+
+## 2. Experimental Design concerns
+
+```{r echo=FALSE}
+#To check for correlation among independent variables
+AC_indep <- AC_df %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    FirstLang,
+    Age)
+
+polycor::hetcor(AC_indep)
+
+#note the strong correlation between Condition and Agency_Language
+
+
+for (i in 1:7){
+  print(unique(AC_indep[,i]))
+}
+```
+# Correlation of independent variables
+
+```{r}
+# Condition and Agency_Language are highly correlated
+pvalue <- chisq.test(table(AC_df$Condition, AC_df$Agency_Language), simulate.p.value = TRUE)$p.value
+balloonplot(table(AC_df$Condition, AC_df$Agency_Language), xlab ="Condition", ylab="Agency_Language",
+            label = TRUE, show.margins = FALSE, main=c("Pearson's chi-square, p-value:", round(pvalue,8)))
+
+# Condition and SRFactsTotal are correlated????  The more facts remembered the more likely "Per" and the less likely "Obj" (BUT it's not a really big difference in the probability of being in that particular group...)
+
+plot(AC_df$Condition, AC_df$SRFactsTotal)
+
+Condition_ordinal <- polr(Condition ~ SRFactsTotal, AC_df)
+summary(Condition_ordinal)
+facts   <- seq(from=0, to=15, by=1)
+xbeta <- facts*(0.003059)
+logistic_cdf <- function(x) {
+  return( 1/(1+exp(-x) ) )
+}
+
+p1 <- logistic_cdf( -0.6983 - xbeta )
+p2 <- logistic_cdf( 0.7084 - xbeta ) - logistic_cdf( -0.6983 - xbeta )
+p3 <- 1 - logistic_cdf( 0.7084 - xbeta )
+
+plot(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,1], type='l', ylab='Prob', ylim=c(.32,.34))
+  lines(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,2], col='red')
+  lines(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,3], col='blue')
+  legend("topleft", lty=1, col=c("black", "red", "blue"), 
+         legend=c("Object", "Nature", "Person"))
+
+  
+t.test(AC_df$SRFactsTotal[AC_df$Condition=="Obj"], AC_df$SRFactsTotal[AC_df$Condition=="Nat"], alternative = "two.sided", var.equal = FALSE)
+t.test(AC_df$SRFactsTotal[AC_df$Condition=="Obj"], AC_df$SRFactsTotal[AC_df$Condition=="Per"], alternative = "two.sided", var.equal = FALSE)
+t.test(AC_df$SRFactsTotal[AC_df$Condition=="Per"], AC_df$SRFactsTotal[AC_df$Condition=="Nat"], alternative = "two.sided", var.equal = FALSE)
+  
+#others??
+chisq.test(table(AC_df$Condition, AC_df$Agency_Language), simulate.p.value = FALSE)
+fisher.test(table(AC_df$Condition, AC_df$Agency_Language))
+pvalue <- chisq.test(table(AC_df$Condition, AC_df$Agency_Language), simulate.p.value = TRUE)$p.value
+
+summary(polr(Condition~SRFactsTotal, data=AC_df))
+
+
+balloonplot(table(AC_df$Condition, AC_df$SRFactsTotal), xlab ="Condition", ylab="Facts recalled",
+            label = TRUE, show.margins = FALSE, main="")
+
+balloonplot(table(AC_df$Condition, AC_df$invitalscore), xlab ="Condition", ylab="Questionnaire: Nature score",
+            label = TRUE, show.margins = FALSE, main="")
+
+balloonplot(table(AC_df$Condition, AC_df$inpsychscore), xlab ="Condition", ylab="Questionnaire: Person score",
+            label = TRUE, show.margins = FALSE, main="")
+
+balloonplot(table(AC_df$FirstLang, AC_df$Age), xlab ="First Language", ylab="Age",
+            label = TRUE, show.margins = FALSE, main="")
+
+
+balloonplot(table(AC_df$Agency_Language, AC_df$SRFactsTotal), xlab ="Condition", ylab="Questionnaire: Nature score",
+            label = TRUE, show.margins = FALSE, main="")
+
+chisq.test(table(AC_df$Agency_Language, AC_df$SRFactsTotal), simulate.p.value = TRUE)
+```
+
