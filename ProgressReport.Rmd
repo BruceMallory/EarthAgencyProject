@@ -69,6 +69,8 @@ kable(t(n))
 ```
   
 ```{r echo=FALSE}
+#Change working directory to your own
+setwd("C:/Users/zzdcy/Desktop/MSSP/consulting")
 
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
@@ -478,3 +480,64 @@ plor.fit4c3 <- polr(comBioJFtotal ~   SRFactsTotal +invitalscore  + inpsychscore
 anova(plor.fit4c,plor.fit4c3)
 
 ```
+
+## 8. Confidence interval
+```{r}
+ci<-AC_df%>%dplyr::select(
+    Condition,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal)
+```
+
+```{r}
+#Meansever
+mean1=subset(ci,Condition=="Per"|Condition=="Nat")
+t.test(MeanSever~Condition,data=mean1)
+
+mean2=subset(ci,Condition=="Per"|Condition=="Obj")
+t.test(MeanSever~Condition,data=mean2)
+
+mean3=subset(ci,Condition=="Obj"|Condition=="Nat")
+t.test(MeanSever~Condition,data=mean3)
+```
+
+
+```{r}
+#BioJtscore
+biojt1=subset(ci,Condition=="Per"|Condition=="Nat")
+t.test(BioJtscore~Condition,data=biojt1)
+
+biojt2=subset(ci,Condition=="Per"|Condition=="Obj")
+t.test(BioJtscore~Condition,data=biojt2)
+
+biojt3=subset(ci,Condition=="Obj"|Condition=="Nat")
+t.test(BioJtscore~Condition,data=biojt3)
+
+```
+
+```{r}
+#AntJtscore
+ant1=subset(ci,Condition=="Per"|Condition=="Nat")
+t.test(AntJtscore~Condition,data=ant1)
+
+ant2=subset(ci,Condition=="Per"|Condition=="Obj")
+t.test(AntJtscore~Condition,data=ant2)
+
+ant3=subset(ci,Condition=="Obj"|Condition=="Nat")
+t.test(AntJtscore~Condition,data=ant3)
+```
+
+```{r}
+#BioJFtotal
+biojf1=subset(ci,Condition=="Per"|Condition=="Nat")
+t.test(BioJFtotal~Condition,data=biojf1)
+
+biojf2=subset(ci,Condition=="Per"|Condition=="Obj")
+t.test(BioJFtotal~Condition,data=biojf2)
+
+biojf3=subset(ci,Condition=="Obj"|Condition=="Nat")
+t.test(BioJFtotal~Condition,data=biojf3)
+```
+
