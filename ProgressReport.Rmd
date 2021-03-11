@@ -7,7 +7,7 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "regclass", "plyr", "gplots")
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "plyr", "gplots")
 ```
    
 ## 1. Decisions made in creating the working data frame
@@ -74,7 +74,9 @@ setwd("C:/Users/zzdcy/Desktop/MSSP/consulting")
 
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+```
 
+```{r}
 adult_df <- adult %>%
   dplyr::select(
     Condition,
@@ -482,62 +484,30 @@ anova(plor.fit4c,plor.fit4c3)
 ```
 
 ## 8. Confidence interval
-```{r}
-ci<-AC_df%>%dplyr::select(
-    Condition,
-    MeanSever,
-    BioJtscore,
-    AntJtscore,
-    BioJFtotal)
-```
+
 
 ```{r}
 #Meansever
-mean1=subset(ci,Condition=="Per"|Condition=="Nat")
-t.test(MeanSever~Condition,data=mean1)
-
-mean2=subset(ci,Condition=="Per"|Condition=="Obj")
-t.test(MeanSever~Condition,data=mean2)
-
-mean3=subset(ci,Condition=="Obj"|Condition=="Nat")
-t.test(MeanSever~Condition,data=mean3)
+confint(plor.fit1c)
+coefplot(plor.fit1c)
 ```
 
 
 ```{r}
 #BioJtscore
-biojt1=subset(ci,Condition=="Per"|Condition=="Nat")
-t.test(BioJtscore~Condition,data=biojt1)
-
-biojt2=subset(ci,Condition=="Per"|Condition=="Obj")
-t.test(BioJtscore~Condition,data=biojt2)
-
-biojt3=subset(ci,Condition=="Obj"|Condition=="Nat")
-t.test(BioJtscore~Condition,data=biojt3)
-
+confint(plor.fit2c)
+coefplot(plor.fit2c)
 ```
 
 ```{r}
 #AntJtscore
-ant1=subset(ci,Condition=="Per"|Condition=="Nat")
-t.test(AntJtscore~Condition,data=ant1)
-
-ant2=subset(ci,Condition=="Per"|Condition=="Obj")
-t.test(AntJtscore~Condition,data=ant2)
-
-ant3=subset(ci,Condition=="Obj"|Condition=="Nat")
-t.test(AntJtscore~Condition,data=ant3)
+confint(plor.fit3c)
+coefplot(plor.fit3c)
 ```
 
 ```{r}
 #BioJFtotal
-biojf1=subset(ci,Condition=="Per"|Condition=="Nat")
-t.test(BioJFtotal~Condition,data=biojf1)
-
-biojf2=subset(ci,Condition=="Per"|Condition=="Obj")
-t.test(BioJFtotal~Condition,data=biojf2)
-
-biojf3=subset(ci,Condition=="Obj"|Condition=="Nat")
-t.test(BioJFtotal~Condition,data=biojf3)
+confint(plor.fit4c)
+coefplot(plor.fit4c)
 ```
 
