@@ -1,0 +1,223 @@
+---
+title: "Combining adult and children's invitalscores"
+author: "Bruce Mallory"
+date: "3/15/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "plyr", "gplots", "gridExtra")
+```
+
+```{r echo=FALSE}
+#Change working directory to your own
+setwd("~/MSSP/Consulting/EarthAgencyProject")
+
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+
+adult_df <- adult %>%
+  dplyr::select(
+    invitalscore,
+    inpsychscore,
+    Age
+  ) %>%
+  mutate(
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    )
+
+child_df <- children %>%
+  dplyr::select(
+    invitalscore,
+    inpsychscore,
+    Age
+  ) %>%
+  mutate(
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore) 
+  )
+child_df <- na.omit(child_df)
+
+#compressed
+adult_df$compressed_invitalscore <- rep(NA, nrow(adult_df))
+adult_df$compressed_invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+adult_df$compressed_invitalscore[which(adult_df$invitalscore==2) ]<-1
+adult_df$compressed_invitalscore[which(adult_df$invitalscore==3) ]<-2
+adult_df$compressed_invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+child_df$compressed_invitalscore <- child_df$invitalscore
+#-----
+
+#standardized
+adult_df$standardized_invitalscore <- (adult_df$invitalscore - mean(adult_df$invitalscore))/sd(adult_df$invitalscore)
+child_df$standardized_invitalscore <- (child_df$invitalscore - mean(child_df$invitalscore))/sd(child_df$invitalscore)
+#-----
+
+#standardized and put into 4 equally sized bins (1 standard deviation wide)
+adult_df$bin_standardized_invitalscore <- floor((adult_df$invitalscore - mean(adult_df$invitalscore))/sd(adult_df$invitalscore))
+adult_df$bin_standardized_invitalscore[which(adult_df$bin_standardized_invitalscore==-3)] <- -2 
+child_df$bin_standardized_invitalscore <- floor((child_df$invitalscore - mean(child_df$invitalscore))/sd(child_df$invitalscore))
+#-----
+
+#percentage
+adult_df$percent_invitalscore <- adult_df$invitalscore/5
+child_df$percent_invitalscore <- child_df$invitalscore/3
+#-----
+
+#percentage and put into 4 equally sized bins (33% wide)
+adult_df$bin_percent_invitalscore <- rep(NA, nrow(adult_df))
+adult_df$bin_percent_invitalscore[which(adult_df$invitalscore==0)]<-0
+adult_df$bin_percent_invitalscore[which(adult_df$invitalscore==1 | adult_df$invitalscore==2)]<-1/3
+adult_df$bin_percent_invitalscore[which(adult_df$invitalscore==3 | adult_df$invitalscore==4)]<-2/3
+adult_df$bin_percent_invitalscore[which(adult_df$invitalscore==5)]<-1
+child_df$bin_percent_invitalscore <- child_df$percent_invitalscore
+#-----
+
+AC <- rbind(adult_df, child_df)
+AC$Age <- ifelse(AC$Age > 10, "Adult", "Child")
+AC$Age <- factor(AC$Age)
+
+AC$standardized_invitalscore <- round(AC$standardized_invitalscore, 2)
+```
+Below are three general ways to normalize the adult and children's scores.  The second method (using standardized scores) seems the least preferable, due to the clumped nature of the resulting adult distribution - either clumped at the low end for straight standardization (#2a below), or clumped in the middle for binned standardization (#2b below).  
+  
+Binned percent-true (#3c), where we round to the nearest children's percent-true, also results in a a clumped adult distribution, with almost no adults in the bottom bin and almost half in the third bin.  And binned percent-true (#3b), where we round up to the nearest 25%, results in an identical outcome to the compressing method (#1).    
+  
+Which then leaves the decision between the compressing method (#1) with four levels, or the "continuous" percent-true method (#3a).  The "continuous" percent-true method results in four levels for the children and more levels for the adults.  We're guessing that the normalizing choice (#1 vs. #3a) will not result in a difference in the model fit, nor in the assessment of whether or not `invitalscore` and `inpsychscore` have an effect on any of the dependent variables.  But we leave the choice up to your judgement which normalizing method is truer to the context of the questions asked of the adults and children.
+
+Finally, this analysis has only been done with `invitalscore`.  And whatever the decision that is made, we will do the same thing for `inpsychscore`.
+
+## 1. Compress adult's `invitalscore` to fit children's `invitalscore`  
+
+```{r fig.height=2.5}
+#original
+gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,5)) +
+  theme_bw() +
+  theme(legend.position="none")
+
+#Bruce's compression
+gg.2 <- ggplot(AC, aes(x=compressed_invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,3.5)) +
+  theme_bw()
+
+grid.arrange(gg.1, gg.2, ncol=2)
+```
+
+$[0,5]$ -> $[0,3]$ by compressing adult 0 & 1 into 0, and adult 4 & 5 into 3, with adult 2 -> 1 and adult 3 -> 2 
+
+\newpage
+## 2a. Standardize both adult & children's `invitalscore`     
+
+```{r fig.height=3}
+#original
+gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,5)) +
+  theme_bw() +
+  theme(legend.position="none")
+
+#standardized values
+gg.2 <- ggplot(AC, aes(x=standardized_invitalscore, fill=Age)) +
+  geom_histogram(binwidth = .25) +
+  geom_text(stat='count', aes(label=..count..)) +
+  coord_cartesian(xlim=c(-2.5, 2.0)) +
+  theme_bw()
+
+grid.arrange(gg.1, gg.2, ncol=2)
+
+#range(AC$standardized_invitalscore[AC$Age=="Adult"])
+#range(AC$standardized_invitalscore[AC$Age=="Child"])
+```
+  
+    
+$standardized score = \frac{x - \bar{x}}{\sigma}$  
+The range of standardized scores for adults = $[-2.38, 1.71]$.  
+The range of standardized scores for children = $[-1.28, 1.52]$.   
+Note: In context, it doesn't make sense for an adult score of 0 or 1 to be lower than the child score of 0.  
+  
+
+## 2b. Standardize both adult & children's `invitalscore`, then round down to the nearest integer to put scores into four bins  
+
+```{r fig.height=3}
+#original
+gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,5)) +
+  theme_bw() +
+  theme(legend.position="none")
+
+#standardized values that are binned
+gg.2 <- ggplot(AC, aes(x=bin_standardized_invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  theme_bw()
+
+grid.arrange(gg.1, gg.2, ncol=2)
+```
+ 
+$standardized score = \frac{x - \bar{x}}{\sigma}$  
+NOTE: Over half the adults end up in the third bin
+
+\newpage
+## 3a. Calculate percent-true for adult & children's `invitalscore`    
+
+```{r fig.height=3}
+#original
+gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,5)) +
+  theme_bw() +
+  theme(legend.position="none")
+
+#percent scores
+gg.2 <- ggplot(AC, aes(x=percent_invitalscore, fill=Age)) +
+  geom_histogram(binwidth = .04, position = "dodge") +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.02)) +
+  coord_cartesian(xlim=c(0, 1)) +
+  theme_bw()
+
+grid.arrange(gg.1, gg.2, ncol=2)
+
+```
+  
+For adults the possible scores are $[0.0, 0.2, 0.4, 0.6, 0.8, 1.0]$.  
+For children the possible scores are $[0.0, 0.33, 0.67, 1.0]$.
+
+## 3b. Calculate percent-true for adult & children's `invitalscore`, then round up to the nearest 25% to put scores into four bins  
+  
+Possible scores are $[0.25, 0.5, 0.75, 1.0]$.  
+This is identical to normalizing by compressing (#1 above)
+
+## 3c. Calculate percent-true for adult & children's `invitalscore`, then round to the nearest third to put scores into four bins    
+
+```{r fig.height=3}
+#original
+gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
+  geom_bar(color="white", position = position_dodge2(preserve = "single")) +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.9)) +
+  coord_cartesian(xlim=c(-.5,5)) +
+  theme_bw() +
+  theme(legend.position="none")
+
+#percent scores
+gg.2 <- ggplot(AC, aes(x=bin_percent_invitalscore, fill=Age)) +
+  geom_histogram(binwidth = .04, position = "dodge") +
+  geom_text(stat='count', aes(label=..count..), position=position_dodge(width=0.02)) +
+  coord_cartesian(xlim=c(0, 1)) +
+  theme_bw()
+
+grid.arrange(gg.1, gg.2, ncol=2)
+
+```
+  
+Possible scores are $[0.0, 0.33, 0.67, 1.0]$.  
+
