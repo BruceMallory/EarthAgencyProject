@@ -74,23 +74,30 @@ adult_df$bin_percent_invitalscore[which(adult_df$invitalscore==5)]<-1
 child_df$bin_percent_invitalscore <- child_df$percent_invitalscore
 #-----
 
+#normalized
+adult_df$normalized_invitalscore <- 
+  (adult_df$invitalscore - min(adult_df$invitalscore))/(max(adult_df$invitalscore)-min(adult_df$invitalscore))
+child_df$normalized_invitalscore <- 
+  (child_df$invitalscore - min(child_df$invitalscore))/(max(child_df$invitalscore)-min(child_df$invitalscore))
+#-----
+
 AC <- rbind(adult_df, child_df)
 AC$Age <- ifelse(AC$Age > 10, "Adult", "Child")
 AC$Age <- factor(AC$Age)
 
 AC$standardized_invitalscore <- round(AC$standardized_invitalscore, 2)
 ```
-Below are three general ways to normalize the adult and children's `invitalscores`.  The comparison below show the original `invitalscore` distribution on the left, and the normalized method on the right.  The second method (using standardized scores) seems the least preferable, due to the clumped nature of the resulting adult distribution - either clumped at the low end for the straight standardization (#2a below), or clumped in the middle for the binned standardization (#2b below).  
+Below are three general ways to normalize the adult and children's `invitalscores`.  The comparison below show the original `invitalscore` distribution on the left, and the normalized method on the right.  The second method (using standardized scores) seems the least preferable, due to the clumped nature of the resulting adult distribution - either clumped at the low end for the straight standardization ($\#2a$ below), or clumped in the middle for the binned standardization ($\#2b$ below).  
   
-If we transform the `invitalscores` by dividing # true by # of questions asked, we get a percent-true measure (#3a).  Binned percent-true (#3c), where we round to the nearest children's percent-true, also results in a a clumped adult distribution, with almost no adults in the bottom bin and almost half the adults in the third bin.  And binned percent-true (#3b), where we round up to the nearest 25%, results in an identical outcome to the compressing method (#1).    
+If we transform the `invitalscores` by dividing # true by # of questions asked, we get a percent-true measure ($\#3a$).  In your situation (where the minimum score is zero) this is also the 'normalized' transformation, where $x'=\frac{x-x_{min}}{x_{max}-x_{min}}$.  If we bin the percent-true to get equal number of outcomes for adults and children ($\#3c$) and then round to the nearest children's percent-true, we also get a clumped adult distribution, with almost no adults in the bottom bin and just under half the adults in the third bin.  And binned percent-true ($\#3b$), where we round up to the nearest 25%, results in an identical outcome to the compressing method ($\#1$).    
   
-Which then leaves the decision between the compressing method (#1) with four levels, or the "continuous" percent-true method (#3a).  The "continuous" percent-true method results in four levels for the children and six levels for the adults.  We're guessing that the normalizing choice (#1 vs. #3a) will not result in a difference in the model fit, nor in the assessment of whether or not `invitalscore` and `inpsychscore` have an effect on any of the dependent variables.  Which would argue for leaving the normalizing choice as a contextual question.  If you have a judgment about which normalizing method (#1 or #3a) is truer to the context of the questions that you asked of the adults and children, then it makes sense to go with that judgement.
+Which then leaves the decision between the compressing method ($\#1$) with four levels, or the "continuous" percent-true method ($\#3a$).  The "continuous" percent-true method results in four levels for the children and six levels for the adults.  We're guessing that the normalizing choice ($\#1$ vs. $\#3a$) will not result in a difference in the model fit, nor in the assessment of whether or not `invitalscore` and `inpsychscore` have an effect on any of the dependent variables.  Which would argue for leaving the normalizing choice as a contextual question.  If you have a judgment about which normalizing method ($\#1$ or $\#3a$) is truer to the context of the questions that you asked of the adults and children, then it makes sense to go with that judgement.
 
 Finally, this analysis has only been done with `invitalscore`.  And whatever the decision that is made, we will do the same thing for `inpsychscore`, and then use those when we analyze whether `invitalscore` and/or `inpsychscore` have an effect on the four dependent variables.
 
 ## 1. Compress adult's `invitalscore` to fit children's `invitalscore`  
 
-```{r fig.height=2.5}
+```{r fig.height=2.25}
 #original
 gg.1 <- ggplot(AC, aes(x=invitalscore, fill=Age)) +
   geom_bar(color="white", position = position_dodge2(preserve = "single")) +
@@ -220,4 +227,3 @@ grid.arrange(gg.1, gg.2, ncol=2)
 ```
   
 Four bins: $[\%>0.0, \%>0.33, \%>0.67, \%=1.0]$.  Possible scores are $[0.0, 0.33, 0.67, 1.0]$.  
-

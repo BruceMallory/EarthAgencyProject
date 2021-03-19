@@ -1,7 +1,7 @@
 ---
 title: "Earth Agency Project: Progress Report"
 author: "Consulting Team A, group 3"
-date: "March 14th, 2021"
+date: "March 20th, 2021"
 output: pdf_document
 ---
 
@@ -14,16 +14,20 @@ pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","r
   
   (a) We have combined *EarthAgency_Adults_R.csv* and *EarthAgency_Children_R.csv* into one data.frame: `AC_df`.  We have done this so that we can make an Adult vs. children comparison.  To combined the two data sets we have done b-d.
   
-  (b) To normalize the adult and children's `invitalscores`, we have compressed the adult's scores (which ranged from 0-5), to match the children's scores (which ranged from 0-3).  
+  (b) For this version of the report, we have normalized by using a percentage to get the adults and children's `invitalscores` to have the same range $[0 , 1]$.  To do this we've calculated the percent-true $new=\frac{old}{5}$ for adults, and $new=\frac{old}{3}$ for children.  
 ``` {r echo=FALSE, message=FALSE, warning=FALSE}
-b <- data.frame(original=as.character(seq(0, 5)), normalized=as.character(c(0,0,1,2,3,3)))
-kable(t(b))  
+b1 <- data.frame(adult=as.character(seq(0, 5)), normalized=as.character(c(0,0.2,0.4,0.6,0.8,1.0)))
+kable(t(b1))
+b2 <- data.frame(child=as.character(seq(0, 3)), normalized=as.character(c(0,0.33,0.67,1.0)))
+kable(t(b2)) 
 ```
   
-  (c) To normalize the adult and children's `inpsychscore`, we have compressed the adult's scores (which ranged from 0-5), to match the children's scores (which ranged from 0-4).  
+  (c) To normalize the adult and children's `inpsychscore`, we have also used a percent-true score.
 ``` {r echo=FALSE, message=FALSE, warning=FALSE}
-c <- data.frame(original=as.character(seq(0, 5)), normalized=as.character(c(0,1,2,2,3,3)))
-kable(t(c))  
+c1 <- data.frame(adult=as.character(seq(0, 5)), normalized=as.character(c(0,0.2,0.4,0.6,0.8,1.0)))
+kable(t(b1))
+c2 <- data.frame(child=as.character(seq(0, 4)), normalized=as.character(c(0,0.25,0.50,0.75,1.0)))
+kable(t(b2)) 
 ```
   
  (d) We have added `FirstLang` to the children's records, and assigned every child a value of 1 for `FirstLang`.  We're assuming that 1=using first language, and 0=not using first language.    
@@ -102,15 +106,14 @@ adult_df <- adult %>%
   )
 
 #compress scores to match invitalscore and inpsychscore for children
-
-adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
-adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
-adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
-adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
-
-adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
-adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
-adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
+# adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+# adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
+# adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
+# adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+# 
+# adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
+# adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
+# adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
 
 child_df <- children %>%
   dplyr::select(
@@ -133,6 +136,21 @@ child_df <- children %>%
     Agency_Language = as.factor(Agency_Language),
     Age 
   )
+
+#convert invitalscore and inpsychscore to percentages so adult and children are on the same scale
+adult_df$invitalscore <- adult_df$invitalscore/5
+child_df$invitalscore <- child_df$invitalscore/3
+adult_df$inpsychscore <- adult_df$inpsychscore/5
+child_df$inpsychscore <- child_df$inpsychscore/3
+#-----
+
+#convert invitalscore and inpsychscore into a combined score normalized as a percentage - called postqs (post questions)
+adult_df$postqs <- (adult$invitalscore + adult$inpsychscore)/10
+child_df$postqs <- (children$invitalscore + children$inpsychscore)/7
+
+#A new dependent varialbe that is BioJ and AntJ combined
+adult_df$B_AJtscore <- adult_df$BioJtscore + adult_df$AntJtscore
+child_df$B_AJtscore <-child_df$BioJtscore + child_df$AntJtscore
 
 #We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
 FirstLang <- rep(1, nrow(child_df))
@@ -176,10 +194,12 @@ AC_indep <- AC_df %>%
     SRFactsTotal,
     invitalscore,
     inpsychscore,
+    postqs,
     FirstLang,
     Age)
 
 cor.check <- polycor::hetcor(AC_indep)
+
 kable(round(cor.check$correlations,2))
 ```
   
@@ -217,40 +237,91 @@ pvalue.4 <- chisq.test(table(AC_df$FirstLang, AC_df$Age), simulate.p.value = FAL
 balloonplot(table(AC_df$FirstLang, AC_df$Age), xlab ="First Language", ylab="Age",
             label = TRUE, show.margins = TRUE, label.size=.5)
 ```
-```{r echo=FALSE}
-## Are Condition and SRFactsTotal  correlated????  
-## The ordinal regression shows more facts remembered the more likely "Per" and the less likely "Obj" (BUT it's not a really big difference in the probability of being in that particular group...).  BUT t-tests show there is no significant difference in mean SRFactsTotal between any of the combinations of "Obj", "Nat", or "Per"
 
-##plot shows no visual correlation
-#plot(AC_df$Condition, AC_df$SRFactsTotal)
+\newpage
 
-##combination of t-tests shows no associatin
-#t.test(AC_df$SRFactsTotal[AC_df$Condition=="Obj"], AC_df$SRFactsTotal[AC_df$Condition=="Nat"], alternative = "two.sided", var.equal = FALSE)
-#t.test(AC_df$SRFactsTotal[AC_df$Condition=="Obj"], AC_df$SRFactsTotal[AC_df$Condition=="Per"], alternative = "two.sided", var.equal = FALSE)
-#t.test(AC_df$SRFactsTotal[AC_df$Condition=="Per"], AC_df$SRFactsTotal[AC_df$Condition=="Nat"], alternative = "two.sided", var.equal = FALSE)
+## 4a. Linear models
+Just for MeanSever.  AND, why is the ordinal model better?
+```{r echo=FALSE, comment=NA}
+lm.fit1 <- lm(MeanSever ~ 
+                Condition + SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, 
+              data = AC_df)
+#drop Age
+lm.fit1b <- lm(MeanSever ~ 
+                 Condition + SRFactsTotal + invitalscore + inpsychscore + FirstLang, 
+               data = AC_df)
+#drop Condition
+lm.fit1c<- lm(MeanSever ~ 
+                SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, 
+              data = AC_df)
+#drop invitalscore + inpsychscore
+lm.fit1d<- lm(MeanSever ~ 
+                Condition + SRFactsTotal + FirstLang + Age, 
+              data = AC_df)
 
-##ordinal regression shows no predictive value for SRFactsTotal - the probability for all three conditions ranges from 32% to 34% (even though there are different patterns to the probobilities within this small range)
-#Condition_ordinal <- polr(Condition ~ SRFactsTotal, AC_df)
-#summary(Condition_ordinal)
-
-#plot(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,1], type='l', ylab='Prob', ylim=c(.32,.34))
-  #lines(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,2], col='red')
-  #lines(facts, predict(Condition_ordinal, newdata=data.frame(SRFactsTotal=facts), type="p")[,3], col='blue')
-  #legend("topleft", lty=1, col=c("black", "red", "blue"), legend=c("Object", "Nature", "Person"))
-
-##This code does the same as above - but using the logit formula - it has not been graphed, but would be graphed the same as the plot above
-facts   <- seq(from=0, to=15, by=1)
-xbeta <- facts*(0.003059)
-logistic_cdf <- function(x) {
-  return( 1/(1+exp(-x) ) )
-}
-
-p1 <- logistic_cdf( -0.6983 - xbeta )
-p2 <- logistic_cdf( 0.7084 - xbeta ) - logistic_cdf( -0.6983 - xbeta )
-p3 <- 1 - logistic_cdf( 0.7084 - xbeta )
+summary(lm.fit1)
+summary(lm.fit1b)
+summary(lm.fit1c)
+summary(lm.fit1d)
 
 ```
-\newpage
+
+## 4b. Binned residual plots
+```{r echo=FALSE, comment=NA}
+par(mfrow=c(2,2))
+binnedplot(fitted(lm.fit1),resid(lm.fit1), main="MeanSeverity")
+```
+
+## 4c. ANOVA for linear model of Mean Severity
+Age is significant.  Condition and (invitalscore + inpsychscore) are not.
+```{r echo=FALSE, comment=NA}
+
+anova(lm.fit1, lm.fit1b)
+anova(lm.fit1, lm.fit1c)
+anova(lm.fit1, lm.fit1d)
+
+```
+
+## 4d.  What if we combine BioJtscore and AntJtscore (new variable `B_AJtscore`) along with combining invital and inpsych (new variable `postqs`)??  
+These new variables have been computed back in section 1. in the code chunk where we build the data frame `AC_df`.  And this is what the scatter plot of just these two combined variables look like.  We've included this scatterplot to explore the question of whether there is a relationship between how biocentric/anthropocentric the participants post questionnaire answer were compared to how strongly biocentric/anthropocentric their harm justifications were.  Visually it looks like there is a relationship for the adults (positive and weak).  Not so much for the children  And combined weakly positive after the low `postqs` score are surpased.  This analysis is merely EDA for us to get a sense of the relationship between this new dependent variable and the new independent variable.
+```{r message=FALSE, warning=FALSE}
+ggplot(AC_df, aes(postqs, B_AJtscore, color=Age)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
+ggplot(AC_df, aes(postqs, B_AJtscore)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
+```
+## 4e.  Linear models with the new variables  
+
+```{r}
+lm.fit2 <- lm(B_AJtscore ~ 
+                Condition + SRFactsTotal + postqs + FirstLang + Age, 
+              data = AC_df)
+#drop Age
+lm.fit2b <- lm(B_AJtscore ~ 
+                Condition + SRFactsTotal + postqs + FirstLang, 
+              data = AC_df)
+#drop Condition
+lm.fit2c <- lm(B_AJtscore ~ 
+                SRFactsTotal + postqs + FirstLang + Age, 
+              data = AC_df)
+#drop postqs
+lm.fit2d <- lm(B_AJtscore ~ 
+                Condition + SRFactsTotal + FirstLang + Age, 
+              data = AC_df)
+
+summary(lm.fit2)
+summary(lm.fit2b)
+summary(lm.fit2c)
+summary(lm.fit2d)
+```
+## 4f. ANOVA for combined justification dependent and combined questionnaire independent
+Age continues to be significant.  Condition still is not.  BUT the new variable `postqs` which is a combination of `invitalscore` and `inpsychscore` is now significant.
+```{r echo=FALSE, comment=NA}
+
+anova(lm.fit2, lm.fit2b)
+anova(lm.fit2, lm.fit2c)
+anova(lm.fit2, lm.fit2d)
+
+```
+
 # 5. Modeling  
 ## 5a. Mean Severity Ordinal model with combined levels
 ```{r echo=FALSE, message=FALSE, comment=NA}
