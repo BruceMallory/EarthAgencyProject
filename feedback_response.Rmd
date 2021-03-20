@@ -1,0 +1,42 @@
+---
+title: "feedback_response"
+author: "Maggie Sha"
+date: "3/20/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**1. Biojtscore and BioJftotal are measuring the same (number of biocentric justifications the participant endorsed), the only difference is that the former was obtained from an open-ended question and the other from a close-ended question. Therefore, I think it would be better that they both have the same transformation into levels (e.g. level1=0,1,2; level2=3; level3=4), unless there was a mathematical reason to choose the levels.**
+
+
+We understand that Biojtscore and BioJftotal are similar, and we also tried the same level transformation (level1=0,1,2; level2=3; level3=4) to them. However, the result of BioJftotal shows that level 2 has 0 values in it, which means there is no value being predicted as 2.
+
+![(BioJftotal Model Fit Result)](D:/MA675_consulting/New/EarthAgency_ConsultingProject/fit_result.png)
+
+Level 2 is less meaningful in this case, and the model does not fit the data properly if we set the level transformation in this way. Thus, we switched the way of transforming BioJftotal.
+
+Since they are so similar, do you think it is reasonable that we combine them together into one dependent variable?
+
+**2.Also, while I was looking at the results, I saw that children were more biocentric than adults but they were also more anthropocentric (both groups were able to provide more than one kind of justification for each situation). It seems that the two separate scores (Biojtscore and Antjtscore) don't let us see differences between those participants who only provided biocentric justifications and those who provided both antrhopocentric and biocentric justifications (for instance, children could be providing more justifications of different kind than adults but we cannot assure that with this analysis). Do you think it would be a good idea to integrate both scores, what alternatives do you know to deal with this kind of issue? I was thinking that we could calculate the proportion of Biocentric justifications over the total amount of justifications (Biocentric+antrhopocentric). Are there any limitations to this approach?**
+
+
+It is hard to see the differences between individuals who provided both anthropocentric and biocentric justifications and who only provided one kind of justification by the barplot in the last report. Instead of applying the proportion method you mentioned and redoing the barplot, we tried the balloonplot in Child group and Adult group separately.
+
+
+
+![(Biojtscore vs. Antjtscore (Child))](D:/MA675_consulting/New/EarthAgency_ConsultingProject/child_group.png)
+![(Biojtscore vs. Antjtscore (Adult))](D:/MA675_consulting/New/EarthAgency_ConsultingProject/adult_group.png)
+
+
+On the balloonplots here, the vertical axis represents AntJtscore and the horizontal axis is BioJtscore. You may notice the gray region behind each level, the size of the shaded region corresponds to the total frequency of each level. For instance, in the Child group, most children get score 3 for BioJtscore, so the shaded region for BioJtscore level 3 is greater than that of the other levels. The size of each blue dot matches the number of individuals who get the corresponding scores for BiojtScore and AntJtscore, for example, in the Adult group, there are only two individuals get BioJtscore 0 and AntJtscore 4. 
+
+In such a way, we can find that children have higher frequency of getting BioJtscore in range [2,3] and AntJtscore in range [2,4], and adults have higher frequency of getting BioJtscore in range [1,3] and AntJtscore in range [1,3]. To be specific, the Child group gets the highest frequency for BioJtscore at level 3 and AntJtscore at level 4 (AntJtscore 4 and 3 are close, level 4 only has two more individuals than level 3), which indicates children tend to get high score for both kinds of justifications. Meanwhile, the adult group gets the highest frequency for BioJtscore at level 1 and AntJtscore at level 2, which implies most of them do not have strong attitude for both kinds of justifications.
+
+Please let us know if this is still not clear.
+
+**3.You mentioned the possibility to do a Principal component analysis, how this could work? Can you explain more about it? Would it group agency language and condition as a factor?**
+
+**4.Regarding the Anova test, I saw that the model with age was significantly different than the model without it which is interesting. However, I'm not sure I'm interpreting the results in a right way, is this Anova comparing the between group variances (children vs. adults) with the within group variances for each dependent variable? Can you please describe more those results?**
