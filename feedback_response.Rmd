@@ -7,36 +7,178 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","rstanarm", "magrittr", "brant", "plyr", "gplots", "gridExtra", "pls")
 ```
 
-**1. Biojtscore and BioJftotal are measuring the same (number of biocentric justifications the participant endorsed), the only difference is that the former was obtained from an open-ended question and the other from a close-ended question. Therefore, I think it would be better that they both have the same transformation into levels (e.g. level1=0,1,2; level2=3; level3=4), unless there was a mathematical reason to choose the levels.**
+```{r echo=FALSE}
+#Change working directory to your own
+setwd("~/MSSP/Consulting/EarthAgencyProject")
+
+adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
+children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
+```
+
+```{r echo=FALSE}
+adult_df <- adult %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    FirstLang,
+    Age
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language),
+    FirstLang = as.factor(FirstLang),
+    Age
+  )
+
+#compress scores to match invitalscore and inpsychscore for children
+# adult_df$invitalscore[which(adult_df$invitalscore==0 | adult_df$invitalscore==1)]<-0
+# adult_df$invitalscore[which(adult_df$invitalscore==2) ]<-1
+# adult_df$invitalscore[which(adult_df$invitalscore==3) ]<-2
+# adult_df$invitalscore[which(adult_df$invitalscore==4 | adult_df$invitalscore==5)]<-3
+# 
+# adult_df$inpsychscore[which(adult_df$inpsychscore==2 | adult_df$inpsychscore==3)]<-2
+# adult_df$inpsychscore[which(adult_df$inpsychscore==4)]<-3
+# adult_df$inpsychscore[which(adult_df$inpsychscore==5)]<-4
+
+child_df <- children %>%
+  dplyr::select(
+    Condition,
+    Agency_Language,
+    SRFactsTotal,
+    invitalscore,
+    inpsychscore,
+    MeanSever,
+    BioJtscore,
+    AntJtscore,
+    BioJFtotal,
+    Age
+  ) %>%
+  mutate(
+    Condition = as.factor(Condition),
+    SRFactsTotal = as.integer(SRFactsTotal),
+    invitalscore = as.integer(invitalscore),
+    inpsychscore = as.integer(inpsychscore),
+    Agency_Language = as.factor(Agency_Language),
+    Age 
+  )
+
+#convert invitalscore and inpsychscore to percentages so adult and children are on the same scale
+adult_df$invitalscore <- adult_df$invitalscore/5
+child_df$invitalscore <- child_df$invitalscore/3
+adult_df$inpsychscore <- adult_df$inpsychscore/5
+child_df$inpsychscore <- child_df$inpsychscore/3
+#-----
+
+#convert invitalscore and inpsychscore into a combined score normalized as a percentage - called postqs (post questions)
+adult_df$postqs <- (adult$invitalscore + adult$inpsychscore)/10
+child_df$postqs <- (children$invitalscore + children$inpsychscore)/7
+
+#A new dependent variable that is BioJ and AntJ combined (CRAP BRUCE - it's BioJtscore and BioJFtotal that need to be combined!)
+adult_df$B_AJtscore <- adult_df$BioJtscore + adult_df$AntJtscore
+child_df$B_AJtscore <-child_df$BioJtscore + child_df$AntJtscore
+
+#We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
+FirstLang <- rep(1, nrow(child_df))
+child_df <- child_df %>% 
+  mutate(
+    FirstLang = as.factor(FirstLang),
+    )
+
+#To take care of the one errant entry, children[87] (mean severity scores are divided by 4 so .67 is not possible…)
+child_df$MeanSever[child_df$MeanSever==2.67] <- 2.5
+
+#To remove children[41] which has no BIoJtscore or AntJtscore
+#To remove children[45] which has no Agency_Language or SRFactsTotal
+child_df <- na.omit(child_df)
+
+## COMBINING children and adult into one data.frame
+AC_df <- rbind(adult_df, child_df)
+
+#make a PCA combination of invitalscore and inpsychscore - called postpca (post questions that were PCA'd)
+library(pls)
+pca_df <- data.frame(nat=AC_df$invitalscore,
+                 per=AC_df$inpsychscore)
+pca <- prcomp(pca_df, scale=TRUE)
+AC_df$postpca <- pca$x[,1]-min(pca$x[,1])
+
+#Giving factor levels cleaner language
+AC_df$Condition <- revalue(AC_df$Condition, c("1"="Obj", "2"="Nat", "3"="Per"))
+AC_df$Agency_Language <- revalue(AC_df$Agency_Language, c("0"="Obj", "2"="Nat", "3"="Per"))
+AC_df$Age <- ifelse(AC_df$Age > 10, "Adult", "Child")
+AC_df$Age <- factor(AC_df$Age)
+```
+Your questions are in quotes.  Our answers follow.
+
+**"1. Biojtscore and BioJftotal are measuring the same (number of biocentric justifications the participant endorsed), the only difference is that the former was obtained from an open-ended question and the other from a close-ended question. Therefore, I think it would be better that they both have the same transformation into levels (e.g. level1=0,1,2; level2=3; level3=4), unless there was a mathematical reason to choose the levels."**
 
 
-We understand that Biojtscore and BioJftotal are similar, and we also tried the same level transformation (level1=0,1,2; level2=3; level3=4) to them. However, the result of BioJftotal shows that level 2 has 0 values in it, which means there is no value being predicted as 2.
+We understand that `Biojtscore` and `BioJftotal` are similar, and we also tried the same level transformation (level1=0,1,2; level2=3; level3=4) to them. However, the result of `BioJftotal` shows that level 2 has 0 values in it, which means there is no value being predicted as 2.
 
-![(BioJftotal Model Fit Result)](D:/MA675_consulting/New/EarthAgency_ConsultingProject/fit_result.png)
+![(BioJftotal Model Fit Result)](~/MSSP/Consulting/EarthAgencyProject/fit_result.png)
 
-Level 2 is less meaningful in this case, and the model does not fit the data properly if we set the level transformation in this way. Thus, we switched the way of transforming BioJftotal.
+Level 2 is less meaningful in this case, and the model does not fit the data properly if we set the level transformation in this way. Thus, we switched the way of transforming `BioJftotal`.
 
-Since they are so similar, do you think it is reasonable that we combine them together into one dependent variable?
+And we have a question for you.  Since `Biojtscore` and `BioJftotal` are so similar, do you think it is reasonable to combine them together into one dependent variable (e.g. `Bioscore` = `Biojtscore` + `BioJftotal`)?
 
-**2.Also, while I was looking at the results, I saw that children were more biocentric than adults but they were also more anthropocentric (both groups were able to provide more than one kind of justification for each situation). It seems that the two separate scores (Biojtscore and Antjtscore) don't let us see differences between those participants who only provided biocentric justifications and those who provided both antrhopocentric and biocentric justifications (for instance, children could be providing more justifications of different kind than adults but we cannot assure that with this analysis). Do you think it would be a good idea to integrate both scores, what alternatives do you know to deal with this kind of issue? I was thinking that we could calculate the proportion of Biocentric justifications over the total amount of justifications (Biocentric+antrhopocentric). Are there any limitations to this approach?**
-
-
-It is hard to see the differences between individuals who provided both anthropocentric and biocentric justifications and who only provided one kind of justification by the barplot in the last report. Instead of applying the proportion method you mentioned and redoing the barplot, we tried the balloonplot in Child group and Adult group separately.
+**"2. Also, while I was looking at the results, I saw that children were more biocentric than adults but they were also more anthropocentric (both groups were able to provide more than one kind of justification for each situation). It seems that the two separate scores (Biojtscore and Antjtscore) don't let us see differences between those participants who only provided biocentric justifications and those who provided both antrhopocentric and biocentric justifications (for instance, children could be providing more justifications of different kind than adults but we cannot assure that with this analysis). Do you think it would be a good idea to integrate both scores, what alternatives do you know to deal with this kind of issue? I was thinking that we could calculate the proportion of Biocentric justifications over the total amount of justifications (Biocentric+antrhopocentric). Are there any limitations to this approach?"**
 
 
-
-![(Biojtscore vs. Antjtscore (Child))](D:/MA675_consulting/New/EarthAgency_ConsultingProject/child_group.png)
-![(Biojtscore vs. Antjtscore (Adult))](D:/MA675_consulting/New/EarthAgency_ConsultingProject/adult_group.png)
+It is hard to see the differences between individuals who provided both anthropocentric and biocentric justifications and who only provided one kind of justification by the barplot in the last report. Instead of applying the proportion method you mentioned and redoing the barplot, we created balloonplots for the Child group and Adult group separately.
 
 
-On the balloonplots here, the vertical axis represents AntJtscore and the horizontal axis is BioJtscore. You may notice the gray region behind each level, the size of the shaded region corresponds to the total frequency of each level. For instance, in the Child group, most children get score 3 for BioJtscore, so the shaded region for BioJtscore level 3 is greater than that of the other levels. The size of each blue dot matches the number of individuals who get the corresponding scores for BiojtScore and AntJtscore, for example, in the Adult group, there are only two individuals get BioJtscore 0 and AntJtscore 4. 
 
-In such a way, we can find that children have higher frequency of getting BioJtscore in range [2,3] and AntJtscore in range [2,4], and adults have higher frequency of getting BioJtscore in range [1,3] and AntJtscore in range [1,3]. To be specific, the Child group gets the highest frequency for BioJtscore at level 3 and AntJtscore at level 4 (AntJtscore 4 and 3 are close, level 4 only has two more individuals than level 3), which indicates children tend to get high score for both kinds of justifications. Meanwhile, the adult group gets the highest frequency for BioJtscore at level 1 and AntJtscore at level 2, which implies most of them do not have strong attitude for both kinds of justifications.
+![(Biojtscore vs. Antjtscore (Child))](~/MSSP/Consulting/EarthAgencyProject/child_group.png)
+![(Biojtscore vs. Antjtscore (Adult))](~/MSSP/Consulting/EarthAgencyProject/adult_group.png)
+
+
+On the balloonplots, the vertical axis represents `AntJtscore` and the horizontal axis is `BioJtscore`. You may notice the gray region behind each level.  The size of the shaded region corresponds to the total frequency of each level for that variable. For instance, in the Child group, most children get score 3 for `BioJtscore`, so the shaded region for `BioJtscore` level 3 is greater than that of the other levels. The size of each blue dot matches the number of individuals who get the corresponding scores for `BiojtScore` and `AntJtscore`, for example, in the Adult group, there are only two individuals get `BioJtscore` 0 and `AntJtscore` 4. 
+
+In such a way, we can find that children have higher frequency of getting `BioJtscore` in range [2,3] and `AntJtscore` in range [2,4], and adults have higher frequency of getting `BioJtscore` in range [1,3] and `AntJtscore` in range [1,3]. To be specific, the Child group gets the highest frequency for `BioJtscore` at level 3 and `AntJtscore` at level 4 (`AntJtscore` 4 and 3 are close, level 4 only has two more individuals than level 3), which indicates children tend to get high score for both kinds of justifications. Meanwhile, the adult group gets the highest frequency for `BioJtscore` at level 1 and `AntJtscore` at level 2, which implies most of them do not have strong attitude for both kinds of justifications.
 
 Please let us know if this is still not clear.
 
-**3.You mentioned the possibility to do a Principal component analysis, how this could work? Can you explain more about it? Would it group agency language and condition as a factor?**
+**"3.You mentioned the possibility to do a Principal component analysis, how this could work? Can you explain more about it? Would it group agency language and condition as a factor?"**
 
-**4.Regarding the Anova test, I saw that the model with age was significantly different than the model without it which is interesting. However, I'm not sure I'm interpreting the results in a right way, is this Anova comparing the between group variances (children vs. adults) with the within group variances for each dependent variable? Can you please describe more those results?**
+We did look into Principal Component Analysis (PCA) for your predictor variables.  PCA is a way to construct new variables, "principal components", to represent several variables.  PCA is mostly used in situations where there are a multitude of variables that can be combined into a smaller and more understandable set of variables (your data set does not suffer from a problem of a multitude of predictor variables).  PCA is sometimes used for predictor variables that are correlated.  But PCA is only used for continuous variables.  And as such, we could not combined `Condition` and `Agency_Language`, and we've continued to run the models using just `Condition` (leaving `Agency_Language` out of the model).
+
+The variables `invitalscore` and `inpsychscore` are also significantly correlated ($p=5.0*10^{-4}$), with a correlation of `cor.test(AC_df$invitalscore, AC_df$inpsychscore)$estimate`).  Though a correlation below .5 is generally not a worry in terms of multicollinearity in a model, we did experiment with using PCA to replace the two correlated variables with a "combined" variable.  Something we could do because `invitalscore` and `inpsychscore` could both be considered to be continuous variables. 
+
+We then tried the linear model fit three ways.  (1) Using both the `invitalscore` and `inpsychscore` in the model.  (NOTE: We used the "normalized", not the "compressed" method for combining the adult and children's `invitalscore` and `inpsychscore` variables.)  (2) By combining the two scores into a new variable `postqs` = `invitalscore` + `inpsychscore`.  (3) By doing principal component analysis to combine `invitalscore` and `inpsychscore` into a new variable, `postpca`.  
+
+As you can see in the summary of the model fits, there is no difference in the $Adjusted.R^2$.  And we've concluded that the choice of what to do with the phase 3 questionnaire comes down to what makes the most sense in the context of your experiment.  Since `invitalscore` and `inpsychscore` are correlated we would suggest looking at the seventeen questions that were asked in the post questionnaire to see if it makes sense to combine them into one variable.  Or if it makes to keep these as two separate variables, we can continue to do that.
+
+```{r echo=FALSE, comment=""}
+#With normalized (not compressed) invitalscore and inpsychscore
+lm.fit1 <- lm(MeanSever ~ 
+                Condition + SRFactsTotal + invitalscore + inpsychscore + FirstLang + Age, 
+              data = AC_df)
+
+#With a postqs score that is the sum of the invitalscore and inpsychscore
+lm.fit2 <- lm(MeanSever ~ 
+                Condition + SRFactsTotal + postqs + FirstLang + Age, 
+              data = AC_df)
+
+#With a postpca score that is a principal component analysis combination of invitalscore and inpsychscore
+lm.fit3 <- lm(MeanSever ~ 
+                Condition + SRFactsTotal + postpca + FirstLang + Age, 
+              data = AC_df)
+summary(lm.fit1)
+summary(lm.fit2)
+summary(lm.fit3)
+```
+
+
+**"4. Regarding the Anova test, I saw that the model with age was significantly different than the model without it which is interesting. However, I'm not sure I'm interpreting the results in a right way, is this Anova comparing the between group variances (children vs. adults) with the within group variances for each dependent variable? Can you please describe more those results?"**
