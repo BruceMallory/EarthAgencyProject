@@ -2,7 +2,9 @@
 title: "feedback_response"
 author: "Group 3"
 date: "3/20/2021"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -12,7 +14,7 @@ pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","r
 
 ```{r echo=FALSE}
 #Change working directory to your own
-setwd("C:/Users/rong.li/Desktop/新建文件夹/Lizette")
+setwd("C:/Users/zzdcy/Desktop/MSSP/consulting")
 
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
@@ -127,7 +129,7 @@ Your questions are in quotes.  Our answers follow.
 
 We understand that `Biojtscore` and `BioJftotal` are similar, and we also tried the same level transformation (level1=0,1,2; level2=3; level3=4) to them. However, the result of `BioJftotal` shows that level 2 has 0 values in it, which means there is no value being predicted as 2.
 
-![(BioJftotal Model Fit Result)](C:/Users/rong.li/Desktop/新建文件夹/Lizette/fit_result.png)
+![(BioJftotal Model Fit Result)](D:/EarthAgencyProject/fit_result.png)
 
 Level 2 is less meaningful in this case, and the model does not fit the data properly if we set the level transformation in this way. Thus, we switched the way of transforming `BioJftotal`.
 
@@ -140,8 +142,8 @@ It is hard to see the differences between individuals who provided both anthropo
 
 
 
-![(Biojtscore vs. Antjtscore (Child))](C:/Users/rong.li/Desktop/新建文件夹/Lizette/child_group.png)
-![(Biojtscore vs. Antjtscore (Adult))](C:/Users/rong.li/Desktop/新建文件夹/Lizette/adult_group.png)
+![(Biojtscore vs. Antjtscore (Child))](D:/EarthAgencyProject/child_group.png)
+![(Biojtscore vs. Antjtscore (Adult))](D:/EarthAgencyProject/adult_group.png)
 
 
 On the balloonplots, the vertical axis represents `AntJtscore` and the horizontal axis is `BioJtscore`. You may notice the gray region behind each level.  The size of the shaded region corresponds to the total frequency of each level for that variable. For instance, in the Child group, most children get score 3 for `BioJtscore`, so the shaded region for `BioJtscore` level 3 is greater than that of the other levels. The size of each blue dot matches the number of individuals who get the corresponding scores for `BiojtScore` and `AntJtscore`, for example, in the Adult group, there are only two individuals get `BioJtscore` 0 and `AntJtscore` 4. 
@@ -209,9 +211,10 @@ The result we got when taking the MeanSever as continuous.
 ```{r}
 fit<-lm(MeanSever ~  Condition + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
 summary(fit)
+plot(fit,which=1)
 ```
 
-When we take Meansever as continious,we got the same result as we take it as categorical--We still did not find any evidence to conclude that 'condition' had any effectbut 'Age' had significant effect on Meansever  (the p-value of Condition is bigger then 0.05,and the p-value of Age is smaller than 0.05.).
+There are bars in the residual plot of the model, it looks not so good.So we think it's not a good choice to use the linear model for Meansever.
 
 5.2 BioJscore/AntJscore/BioJFtotal
 
