@@ -148,7 +148,7 @@ child_df$inpsychscore <- child_df$inpsychscore/3
 adult_df$postqs <- (adult$invitalscore + adult$inpsychscore)/10
 child_df$postqs <- (children$invitalscore + children$inpsychscore)/7
 
-#A new dependent varialbe that is BioJ and AntJ combined
+#A new dependent variable that is BioJ and AntJ combined (CRAP BRUCE - it's BioJtscore and BioJFtotal that need to be combined!)
 adult_df$B_AJtscore <- adult_df$BioJtscore + adult_df$AntJtscore
 child_df$B_AJtscore <-child_df$BioJtscore + child_df$AntJtscore
 
@@ -168,6 +168,13 @@ child_df <- na.omit(child_df)
 
 ## COMBINING children and adult into one data.frame
 AC_df <- rbind(adult_df, child_df)
+
+#make a PCA combination of invitalscore and inpsychscore - called postpca (post questions that were PCA'd)
+library(pls)
+pca_df <- data.frame(nat=AC_df$invitalscore,
+                 per=AC_df$inpsychscore)
+pca <- prcomp(pca_df, scale=TRUE)
+AC_df$postpca <- pca$x[,1]-min(pca$x[,1])
 
 #Giving factor levels cleaner language
 AC_df$Condition <- revalue(AC_df$Condition, c("1"="Obj", "2"="Nat", "3"="Per"))
@@ -231,7 +238,7 @@ balloonplot(table(AC_df$invitalscore, AC_df$inpsychscore), xlab ="invitalscore",
 ```
   
 ## 3c. Correlation between `FirstLang` and `Age`  
-Because we are assuming that the 89 children in the study are all using their first language, there is a strong correlation between `FirstLang` and `Age` ($p=2.4*10^{-6}$).  But, for contextual reasons, we have left both of these variables in the models below.  And when we ran the model without `FirstLang` it did not imporove the model fit.
+Because we are assuming that the 89 children in the study are all using their first language, there is a strong correlation between `FirstLang` and `Age` ($p=2.4*10^{-6}$).  But, for contextual reasons, we have left both of these variables in the models below.  And when we ran the model without `FirstLang` it did not improve the model fit.
 ```{r echo=FALSE, warning=FALSE, out.width="33%"}
 pvalue.4 <- chisq.test(table(AC_df$FirstLang, AC_df$Age), simulate.p.value = FALSE)$p.value
 balloonplot(table(AC_df$FirstLang, AC_df$Age), xlab ="First Language", ylab="Age",
@@ -264,6 +271,9 @@ summary(lm.fit1b)
 summary(lm.fit1c)
 summary(lm.fit1d)
 
+
+#VIF of linear model (note invital and ipsych do NOT have VIF's above 5, so maybe they are NOT a problem, AND the correlation for invital and ipsych is 0.34, which is NOT that high)
+car::vif(lm.fit1)
 ```
 
 ## 4b. Binned residual plots
@@ -291,9 +301,17 @@ ggplot(AC_df, aes(postqs, B_AJtscore)) + geom_point() + geom_jitter() + theme_bw
 ## 4e.  Linear models with the new variables  
 
 ```{r}
-lm.fit2 <- lm(B_AJtscore ~ 
+lm.fit2 <- lm(MeanSever ~ 
                 Condition + SRFactsTotal + postqs + FirstLang + Age, 
               data = AC_df)
+
+lm.fit3 <- lm(MeanSever ~ 
+                Condition + SRFactsTotal + postpca + FirstLang + Age, 
+              data = AC_df)
+summary(lm.fit1)
+summary(lm.fit2)
+summary(lm.fit3)
+
 #drop Age
 lm.fit2b <- lm(B_AJtscore ~ 
                 Condition + SRFactsTotal + postqs + FirstLang, 
@@ -438,8 +456,8 @@ cat("Misclassification error is:",ME,"\n")
 #BioJFtotal with Combination
 AC_df$comBioJFtotal<-AC_df$BioJFtotal
 AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==0))]<-1
-#AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==2))]<-1
-#AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==3))]<-2
+AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==2))]<-1
+AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==3))]<-2
 AC_df$comBioJFtotal[which((AC_df$comBioJFtotal==4))]<-3
 AC_df$comBioJFtotal<- factor(AC_df$comBioJFtotal, ordered = TRUE)
 
@@ -579,7 +597,48 @@ gg.4 <- ggplot(Age_df, aes(x=comBioJFtotal, y=prop, fill=Age)) +
   labs(title="Biocentric Choice for each Age") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1))
 
-grid.arrange(gg.1, gg.2, gg.3, gg.4, ncol=2)
+#-----
+#Calculate a difference score (comBioJtscore - comAntJtscore) for everybody
+AC_df$BioMinusAnthro <- as.integer(AC_df$comBioJFtotal) - as.integer(AC_df$comAntJtscore)
+
+hist(AC_df$BioMinusAnthro   )
+  
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="score", y="proportion") +
+  coord_cartesian(ylim=c(0, 1), xlim=c(-3,3)) +
+  theme_minimal(base_size=8) +
+  #theme(legend.position="none") +
+  labs(title="Biocentric - Anthropocentric for each Age") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+
+#Calculate % in each of the BioMinusAnthro outcomes for children
+Age1_df <- AC_df %>% 
+  filter(Age=="Child") %>% 
+  group_by(BioMinusAnthro, Age) %>% 
+  dplyr::summarise(n=n()) %>% 
+  mutate(prop=n/sum(n))
+
+#Calculate % in each of the BioMinusAnthro outcomes for Adults
+Age2_df <- AC_df %>% 
+  filter(Age=="Adult") %>% 
+  group_by(BioMinusAnthro, Age) %>% 
+  dplyr::summarise(n=n()) %>% 
+  mutate(prop=n/sum(n))
+
+Age_df <- bind_rows(Age1_df, Age2_df)
+
+gg.5 <- ggplot(Age_df, aes(x=BioMinusAnthro, y=prop, fill=Age)) +
+  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
+  labs(x="score", y="proportion") +
+  coord_cartesian(ylim=c(0, 1), xlim=c(-3,3)) +
+  theme_minimal(base_size=8) +
+  #theme(legend.position="none") +
+  labs(title="Biocentric - Anthropocentric for each Age") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
+
+
+grid.arrange(gg.1, gg.2, gg.3, gg.4, gg.5, ncol=2)
 ```
 \newpage
  
