@@ -205,16 +205,21 @@ You can also look at this website: https://bookdown.org/ndphillips/YaRrr/compari
 
 **"5. Check whether the analysis show similar results when taking the dependent variables as continous"**
 
-5.1.Meansever
 
-The result we got when taking the MeanSever as continuous.
+We want to make sure that taking the dependent variables as continuous, especially the Meansever, is valid before we discuss the results from the multiple linear regression. Otherwise it would be unhelpful. 
+
+This is the residual plot from the multiple linear regression:
+
 ```{r}
-fit<-lm(MeanSever ~  Condition + SRFactsTotal +invitalscore  + inpsychscore + FirstLang+Age, data = AC_df)
-summary(fit)
-plot(fit,which=1)
+multi_linear <- lm(MeanSever ~  Condition + SRFactsTotal + invitalscore  + inpsychscore + FirstLang + Age, data = AC_df)
+plot(multi_linear, which = 1)
 ```
 
-There are bars in the residual plot of the model, it looks not so good.So we think it's not a good choice to use the linear model for Meansever.
+If there is a linear relationship between the response and predictors, we expect to see the points randomly and evenly distributed around 0 in the residual plot. However, here we can find the points are not random, there is a clear downward trend. Also, they are not evenly distributed around 0, and this is obvious if you look at the fitted values > 2.
+
+The parallel lines indicate that our dependent variables only have several distinct possible values, this violates the assumption of linearity. This is also why we considered to level the data and switch to the ordinal regression. 
+
+As the linear regression is not appropriate for our data, we should not trust the result from it.
 
 5.2 BioJscore/AntJscore/BioJFtotal
 
