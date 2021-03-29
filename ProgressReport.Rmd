@@ -149,8 +149,8 @@ adult_df$postqs <- (adult$invitalscore + adult$inpsychscore)/10
 child_df$postqs <- (children$invitalscore + children$inpsychscore)/7
 
 #A new dependent variable that is BioJ and AntJ combined (CRAP BRUCE - it's BioJtscore and BioJFtotal that need to be combined!)
-adult_df$B_AJtscore <- adult_df$BioJtscore + adult_df$AntJtscore
-child_df$B_AJtscore <-child_df$BioJtscore + child_df$AntJtscore
+adult_df$B_Bscore <- adult_df$BioJtscore + adult_df$BioJFtotal
+child_df$B_Bscore <-child_df$BioJtscore + child_df$BioJFtotal
 
 #We're not sure we have the coding for FirstLang correct (1 = speaking their first language??)
 FirstLang <- rep(1, nrow(child_df))
@@ -292,11 +292,11 @@ anova(lm.fit1, lm.fit1d)
 
 ```
 
-## 4d.  What if we combine BioJtscore and AntJtscore (new variable `B_AJtscore`) along with combining invital and inpsych (new variable `postqs`)??  
+## 4d.  What if we combine BioJtscore and BioJFtotal (new variable `B_Bscore`) along with combining invital and inpsych (new variable `postqs`)??  
 These new variables have been computed back in section 1. in the code chunk where we build the data frame `AC_df`.  And this is what the scatter plot of just these two combined variables look like.  We've included this scatterplot to explore the question of whether there is a relationship between how biocentric/anthropocentric the participants post questionnaire answer were compared to how strongly biocentric/anthropocentric their harm justifications were.  Visually it looks like there is a relationship for the adults (positive and weak).  Not so much for the children  And combined weakly positive after the low `postqs` score are surpased.  This analysis is merely EDA for us to get a sense of the relationship between this new dependent variable and the new independent variable.
 ```{r message=FALSE, warning=FALSE}
-ggplot(AC_df, aes(postqs, B_AJtscore, color=Age)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
-ggplot(AC_df, aes(postqs, B_AJtscore)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
+ggplot(AC_df, aes(postqs, B_Bscore, color=Age)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
+ggplot(AC_df, aes(postqs, B_Bscore)) + geom_point() + geom_jitter() + theme_bw() + geom_smooth()
 ```
 ## 4e.  Linear models with the new variables  
 
@@ -313,15 +313,15 @@ summary(lm.fit2)
 summary(lm.fit3)
 
 #drop Age
-lm.fit2b <- lm(B_AJtscore ~ 
+lm.fit2b <- lm(B_Bscore ~ 
                 Condition + SRFactsTotal + postqs + FirstLang, 
               data = AC_df)
 #drop Condition
-lm.fit2c <- lm(B_AJtscore ~ 
+lm.fit2c <- lm(B_Bscore ~ 
                 SRFactsTotal + postqs + FirstLang + Age, 
               data = AC_df)
 #drop postqs
-lm.fit2d <- lm(B_AJtscore ~ 
+lm.fit2d <- lm(B_Bscore ~ 
                 Condition + SRFactsTotal + FirstLang + Age, 
               data = AC_df)
 
@@ -494,7 +494,7 @@ Yes, there is a significant difference.
 You can see the difference in the plots of the dependent variables colored by `Age`.  Note: none of the other predictor variables are included in this visualization.
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
-#-----
+
 #Calculate % in each of the MeanSeverity outcomes for children
 Age1_df <- AC_df %>% 
   filter(Age=="Child") %>% 
@@ -597,48 +597,7 @@ gg.4 <- ggplot(Age_df, aes(x=comBioJFtotal, y=prop, fill=Age)) +
   labs(title="Biocentric Choice for each Age") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1))
 
-#-----
-#Calculate a difference score (comBioJtscore - comAntJtscore) for everybody
-AC_df$BioMinusAnthro <- as.integer(AC_df$comBioJFtotal) - as.integer(AC_df$comAntJtscore)
-
-hist(AC_df$BioMinusAnthro   )
-  
-  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
-  labs(x="score", y="proportion") +
-  coord_cartesian(ylim=c(0, 1), xlim=c(-3,3)) +
-  theme_minimal(base_size=8) +
-  #theme(legend.position="none") +
-  labs(title="Biocentric - Anthropocentric for each Age") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
-
-
-#Calculate % in each of the BioMinusAnthro outcomes for children
-Age1_df <- AC_df %>% 
-  filter(Age=="Child") %>% 
-  group_by(BioMinusAnthro, Age) %>% 
-  dplyr::summarise(n=n()) %>% 
-  mutate(prop=n/sum(n))
-
-#Calculate % in each of the BioMinusAnthro outcomes for Adults
-Age2_df <- AC_df %>% 
-  filter(Age=="Adult") %>% 
-  group_by(BioMinusAnthro, Age) %>% 
-  dplyr::summarise(n=n()) %>% 
-  mutate(prop=n/sum(n))
-
-Age_df <- bind_rows(Age1_df, Age2_df)
-
-gg.5 <- ggplot(Age_df, aes(x=BioMinusAnthro, y=prop, fill=Age)) +
-  geom_col(color="white", position = position_dodge2(width = 0.001, preserve = "single")) +
-  labs(x="score", y="proportion") +
-  coord_cartesian(ylim=c(0, 1), xlim=c(-3,3)) +
-  theme_minimal(base_size=8) +
-  #theme(legend.position="none") +
-  labs(title="Biocentric - Anthropocentric for each Age") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1))
-
-
-grid.arrange(gg.1, gg.2, gg.3, gg.4, gg.5, ncol=2)
+grid.arrange(gg.1, gg.2, gg.3, gg.4, ncol=2)
 ```
 \newpage
  
