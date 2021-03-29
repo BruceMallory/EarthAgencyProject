@@ -2,9 +2,7 @@
 title: "feedback_response"
 author: "Group 3"
 date: "3/20/2021"
-output:
-  html_document:
-    df_print: paged
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
@@ -14,7 +12,7 @@ pacman::p_load("knitr","tidyverse","glmnet","car","tidyverse","ggplot2","arm","r
 
 ```{r echo=FALSE}
 #Change working directory to your own
-setwd("C:/Users/zzdcy/Desktop/MSSP/consulting")
+setwd("~/MSSP/Consulting/EarthAgencyProject")
 
 adult <- read.csv("EarthAgency_Adults_R.csv", header = TRUE)
 children <- read.csv("EarthAgency_Children_R.csv", header = TRUE)
@@ -129,7 +127,7 @@ Your questions are in quotes.  Our answers follow.
 
 We understand that `Biojtscore` and `BioJftotal` are similar, and we also tried the same level transformation (level1=0,1,2; level2=3; level3=4) to them. However, the result of `BioJftotal` shows that level 2 has 0 values in it, which means there is no value being predicted as 2.
 
-![(BioJftotal Model Fit Result)](D:/EarthAgencyProject/fit_result.png)
+![(BioJftotal Model Fit Result)](~/MSSP/Consulting/EarthAgencyProject/fit_result.png)
 
 Level 2 is less meaningful in this case, and the model does not fit the data properly if we set the level transformation in this way. Thus, we switched the way of transforming `BioJftotal`.
 
@@ -142,8 +140,8 @@ It is hard to see the differences between individuals who provided both anthropo
 
 
 
-![(Biojtscore vs. Antjtscore (Child))](D:/EarthAgencyProject/child_group.png)
-![(Biojtscore vs. Antjtscore (Adult))](D:/EarthAgencyProject/adult_group.png)
+![(Biojtscore vs. Antjtscore (Child))](~/MSSP/Consulting/EarthAgencyProject/child_group.png)
+![(Biojtscore vs. Antjtscore (Adult))](~/MSSP/Consulting/EarthAgencyProject/adult_group.png)
 
 
 On the balloonplots, the vertical axis represents `AntJtscore` and the horizontal axis is `BioJtscore`. You may notice the gray region behind each level.  The size of the shaded region corresponds to the total frequency of each level for that variable. For instance, in the Child group, most children get score 3 for `BioJtscore`, so the shaded region for `BioJtscore` level 3 is greater than that of the other levels. The size of each blue dot matches the number of individuals who get the corresponding scores for `BiojtScore` and `AntJtscore`, for example, in the Adult group, there are only two individuals get `BioJtscore` 0 and `AntJtscore` 4. 
@@ -206,9 +204,15 @@ You can also look at this website: https://bookdown.org/ndphillips/YaRrr/compari
 **"5. Check whether the analysis show similar results when taking the dependent variables as continous"**
 
 
-We want to make sure that taking the dependent variables as continuous, especially the Meansever, is valid before we discuss the results from the multiple linear regression. Otherwise it would be unhelpful. 
+### 5.1 Mean Severity
 
-This is the residual plot from the multiple linear regression:
+We want to make sure that taking the dependent variables as continuous, especially the Meansever, is valid before we discuss the results from the multiple linear regression. Otherwise it would be unhelpful.  For that reason we checked the four assumptions for multiple linear regression:  
+(1) linearity,
+(2) independence,
+(3) heteroscedasticity (constant variance),
+(4) normality.
+
+In particular we were concerned with (3).  This is the residual plot from the multiple linear regression:
 
 ```{r}
 multi_linear <- lm(MeanSever ~  Condition + SRFactsTotal + invitalscore  + inpsychscore + FirstLang + Age, data = AC_df)
@@ -217,10 +221,10 @@ plot(multi_linear, which = 1)
 
 If there is a linear relationship between the response and predictors, we expect to see the points randomly and evenly distributed around 0 in the residual plot. However, here we can find the points are not random, there is a clear downward trend. Also, they are not evenly distributed around 0, and this is obvious if you look at the fitted values > 2.
 
-The parallel lines indicate that our dependent variables only have several distinct possible values, this violates the assumption of linearity. This is also why we considered to level the data and switch to the ordinal regression. 
+Part of that downward trend is the visual perception of diagonal (high left to low right) bands in the residuals.  This "banding" of the residuals is due to the fact that there are only so many response outcomes (13, and if you look closely you can see thirteen bands of residuals).  Regarless of this pattern, there is still a shrinking of the residuals, which violate assumption (3).
 
-As the linear regression is not appropriate for our data, we should not trust the result from it.
+The clear banding indicates ordinal responses, and the assumptions for a multiple linear regression model are not met.  That's why we chose to do an ordinal logistical regression model for MeanSeverity.
 
-5.2 BioJscore/AntJscore/BioJFtotal
+### 5.2 BioJscore/AntJscore/BioJFtotal
 
-Since these three dependent variables are categorical, it is not recommended to treat them as continuous variables.(We took these three dependent variables as continious and fitted linear models last semester,but they did not fit well).
+Since these three dependent variables are categorical, it is not recommended to treat them as continuous variables.(We took these three dependent variables as continuous and fitted linear models last semester,but they did not fit well).
